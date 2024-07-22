@@ -57,6 +57,7 @@ ss::data range_encode(ss::data& a)
 	std::uint64_t work_lo = 0;
 	std::uint64_t work_hi = ULLONG_MAX;
 	assign_ranges(work_lo, work_hi);
+	std::uint16_t l_bitcount = 0;
 	for (std::size_t i = 0; i < message_len; ++i) {
 		if (min_range < 4096) {
 			std::cout << "finished work_lo " << std::hex << work_lo << " work_hi " << work_hi << std::endl;
@@ -68,6 +69,7 @@ ss::data range_encode(ss::data& a)
 				if (bit_lo == bit_hi) {
 					std::cout << bit_lo;
 					l_bitstream.write_bit(bit_lo);
+					l_bitcount++;
 					work_lo <<= 1;
 					work_hi <<= 1;
 					bits++;
@@ -90,30 +92,86 @@ ss::data range_encode(ss::data& a)
 	std::cout << "midpoint: " << std::hex << l_midpoint << std::endl;
 	std::cout << "take the midpoint of these and write out these 64 bits and tie a ribbon on it." << std::endl;
 	l_bitstream.write_bits(l_midpoint, 64);
+	l_bitcount += 64;
 	std::cout << "l_bitstream = " << l_bitstream.as_hex_str() << std::endl;
 	std::cout << "l_bitstream len " << std::dec << l_bitstream.size() << " original len " << message_len << std::endl;
-	return l_bitstream;
+	ss::data l_comp;
+	l_comp.write_uint16(a.size()); // original length
+	l_comp.write_uint16(l_bitcount);
+	l_comp += l_bitstream;
+	return l_comp;
 }
 
-void range_decode(ss::data& a)
+ss::data range_decode(ss::data& a)
 {
+	ss::data l_ret;
+
 	// assume our probability table is already constructed. in reality we will load it from the file with the compressed data
 	assign_ranges(0, ULLONG_MAX);
+	std::uint16_t l_original_size = a.read_uint16();
+	std::uint16_t l_bitcount = a.read_uint16();
+	std::cout << "original size " << std::dec << l_original_size << " bitcount " << l_bitcount << std::endl;
 	ss::data::bit_cursor l_bitcursor;
+	l_bitcursor.byte = 4; // step over header data
 	a.set_read_bit_cursor(l_bitcursor);
 	std::uint64_t work = a.read_bits(64); // prime the pump
+	std::uint64_t l_lo = 0;
+	std::uint64_t l_hi = ULLONG_MAX;
 	std::cout << "range_decode: starting with work value " << std::hex << std::setfill('0') << std::setw(16) << work << std::endl;
-	do {
-		// find range work value belongs to
-		for (std::size_t i = 0; i < 256; ++i) {
-			symbol l_sym = probs[i];
-			if ((work < l_sym.hi) && (work > l_sym.lo)) {
-				std::cout << "decoded symbol " << std::hex << std::setw(2) << i << " = " << (char)i << std::endl;
-				assign_ranges(l_sym.lo, l_sym.hi);
+	std::uint16_t l_pos = 0;
+	std::uint16_t l_bit_pos = 64;
+	while (1) {
+		do {
+			// find range work value belongs to
+			for (std::size_t i = 0; i < 256; ++i) {
+				symbol l_sym = probs[i];
+				if ((work < l_sym.hi) && (work > l_sym.lo)) {
+					std::cout << "pos " << std::dec << l_pos << " decoded symbol " << std::hex << std::setw(2) << i << " = " << (char)i << std::endl;
+					l_ret.write_uint8(i);
+					l_pos++;
+					assign_ranges(l_sym.lo, l_sym.hi);
+					l_lo = l_sym.lo;
+					l_hi = l_sym.hi;
+					break;
+				}
+				if (l_pos >= l_original_size)
+					break;
+			}
+			if (l_pos >= l_original_size)
+				break;
+		} while (min_range > 4095);
+		// if we broke out of the above loop at EOF, tie a ribbon on it, we're done
+		if (l_pos == l_original_size)
+			return l_ret;
+		std::uint16_t l_bit_request = 0;
+		// find out how many bits we need to shift (and request)
+		while (1) {
+			bool bit_lo = ((l_lo & 0x8000000000000000ULL) > 0);
+			bool bit_hi = ((l_hi & 0x8000000000000000ULL) > 0);
+			if (bit_lo == bit_hi) {
+				l_bit_request++;
+				l_lo <<= 1;
+				l_hi <<= 1;
+			} else {
 				break;
 			}
 		}
-	} while (min_range > 4095);
+		work <<= l_bit_request;
+		std::uint64_t l_read = 0;
+		if ((l_bit_pos + l_bit_request) < l_bitcount) {
+			std::cout << "reading " << std::dec << l_bit_request << "  bits..." << std::endl;
+			l_read = a.read_bits(l_bit_request);
+			l_bit_pos += l_bit_request;
+		} else {
+			std::uint16_t l_final_bit_count = l_bitcount - l_bit_pos;
+			std::cout << "reading " << std::dec << l_final_bit_count << " bits..." << std::endl;
+			l_read = a.read_bits(l_final_bit_count);
+			l_read <<= (l_bit_request - l_final_bit_count);
+			l_bit_pos += l_final_bit_count;
+		}
+		work |= l_read;
+		assign_ranges(l_lo, l_hi);
+	}
 }
 
 int main(int argc, char **argv)
@@ -122,7 +180,10 @@ int main(int argc, char **argv)
 	l_test.write_std_str("Now is the time for all good men to pull up their pants and stop wanking it to porn. There is no reason for this shit to continue, it is bad for society and has little if any positive benefit.");
 	l_test.write_std_str("here is some more text to work with to pad out the size of our buffer so that we can get a better picture of what's going on here. I want to have some good data to use here as a test vector!");
 	ss::data l_comp = range_encode(l_test);
-	range_decode(l_comp);
+	ss::data l_decomp = range_decode(l_comp);
+	std::cout << "l_test    " << l_test.as_hex_str_nospace() << std::endl;
+	std::cout << "l_decomp  " << l_decomp.as_hex_str_nospace() << std::endl;
+	std::cout << "l_test == l_decomp: " << std::boolalpha << (l_test == l_decomp) << std::endl;
 
 	return 0;
 }
