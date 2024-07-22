@@ -19,7 +19,7 @@ std::uint64_t min_range;
 
 void assign_ranges(std::uint64_t a_lo, std::uint64_t a_hi)
 {
-	std::cout << "characterizing range a_lo " << std::hex << std::setfill('0') << std::setw(16) << a_lo << " a_hi " << a_hi << " size " << (a_hi - a_lo) << std::endl;
+	//std::cout << "characterizing range a_lo " << std::hex << std::setfill('0') << std::setw(16) << a_lo << " a_hi " << a_hi << " size " << (a_hi - a_lo) << std::endl;
 	// assign ranges
 	std::uint64_t l_lasthigh = a_lo;
 	std::uint16_t l_accumulator = 0;
@@ -60,14 +60,14 @@ ss::data range_encode(ss::data& a)
 	std::uint16_t l_bitcount = 0;
 	for (std::size_t i = 0; i < message_len; ++i) {
 		if (min_range < 4096) {
-			std::cout << "finished work_lo " << std::hex << work_lo << " work_hi " << work_hi << std::endl;
+			//std::cout << "finished work_lo " << std::hex << work_lo << " work_hi " << work_hi << std::endl;
 			std::uint16_t bits = 0;
-			std::cout << "writing bits: ";
+			//std::cout << "writing bits: ";
 			while (1) {
 				bool bit_lo = ((work_lo & 0x8000000000000000ULL) > 0);
 				bool bit_hi = ((work_hi & 0x8000000000000000ULL) > 0);
 				if (bit_lo == bit_hi) {
-					std::cout << bit_lo;
+					//std::cout << std::noboolalpha << bit_lo;
 					l_bitstream.write_bit(bit_lo);
 					l_bitcount++;
 					work_lo <<= 1;
@@ -77,12 +77,12 @@ ss::data range_encode(ss::data& a)
 					break;
 				}
 			}
-			std::cout << std::endl << "wrote " << std::dec << bits << " bits." << std::endl;
-			std::cout << "new finished work_lo " << std::hex << work_lo << " work_hi " << work_hi << std::endl;
+			//std::cout << std::endl << "wrote " << std::dec << bits << " bits." << std::endl;
+			//std::cout << "new finished work_lo " << std::hex << work_lo << " work_hi " << work_hi << std::endl;
 			assign_ranges(work_lo, work_hi);
 		}
 		symbol l_sym = probs[a[i]];
-		std::cout << "encode loop: position " << i << " read symbol " << std::hex << std::setfill('0') << std::setw(2) << (int)a[i] << std::endl;
+		//std::cout << "encode loop: position " << i << " read symbol " << std::hex << std::setfill('0') << std::setw(2) << (int)a[i] << std::endl;
 		work_lo = l_sym.lo;
 		work_hi = l_sym.hi;
 		assign_ranges(work_lo, work_hi);
@@ -93,7 +93,7 @@ ss::data range_encode(ss::data& a)
 	std::cout << "take the midpoint of these and write out these 64 bits and tie a ribbon on it." << std::endl;
 	l_bitstream.write_bits(l_midpoint, 64);
 	l_bitcount += 64;
-	std::cout << "l_bitstream = " << l_bitstream.as_hex_str() << std::endl;
+	//std::cout << "l_bitstream = " << l_bitstream.as_hex_str() << std::endl;
 	std::cout << "l_bitstream len " << std::dec << l_bitstream.size() << " original len " << message_len << std::endl;
 	ss::data l_comp;
 	l_comp.write_uint16(a.size()); // original length
@@ -122,16 +122,18 @@ ss::data range_decode(ss::data& a)
 	std::uint16_t l_bit_pos = 64;
 	while (1) {
 		do {
+			bool l_found = false;
 			// find range work value belongs to
 			for (std::size_t i = 0; i < 256; ++i) {
 				symbol l_sym = probs[i];
-				if ((work < l_sym.hi) && (work > l_sym.lo)) {
-					std::cout << "pos " << std::dec << l_pos << " decoded symbol " << std::hex << std::setw(2) << i << " = " << (char)i << std::endl;
+				if ((work <= l_sym.hi) && (work >= l_sym.lo)) {
+					//std::cout << "pos " << std::dec << l_pos << " decoded symbol " << std::hex << std::setw(2) << i << " = " << (char)i << std::endl;
 					l_ret.write_uint8(i);
 					l_pos++;
 					assign_ranges(l_sym.lo, l_sym.hi);
 					l_lo = l_sym.lo;
 					l_hi = l_sym.hi;
+					l_found = true;
 					break;
 				}
 				if (l_pos >= l_original_size)
@@ -139,6 +141,17 @@ ss::data range_decode(ss::data& a)
 			}
 			if (l_pos >= l_original_size)
 				break;
+			if (!l_found) {
+				// exhausted the for loop... didn't find the range. Fatal error
+				std::cout << "unable to find range for work " << std::hex << work << std::endl;
+				for (std::size_t i = 0; i < 256; ++i) {
+					symbol l_sym = probs[i];
+					if (l_sym.count > 0) {
+						std::cout << "sym " << std::hex << (int)i << " count " << (int)l_sym.count << std::hex << std::setfill('0') << std::setw(16) << " l_sym.lo " << l_sym.lo << " l_sym.hi " << l_sym.hi << std::dec << " size " << l_sym.size << std::endl;
+					}
+				}
+				exit(EXIT_FAILURE);
+			}
 		} while (min_range > 4095);
 		// if we broke out of the above loop at EOF, tie a ribbon on it, we're done
 		if (l_pos == l_original_size)
@@ -159,12 +172,12 @@ ss::data range_decode(ss::data& a)
 		work <<= l_bit_request;
 		std::uint64_t l_read = 0;
 		if ((l_bit_pos + l_bit_request) < l_bitcount) {
-			std::cout << "reading " << std::dec << l_bit_request << "  bits..." << std::endl;
+			//std::cout << "reading " << std::dec << l_bit_request << "  bits..." << std::endl;
 			l_read = a.read_bits(l_bit_request);
 			l_bit_pos += l_bit_request;
 		} else {
 			std::uint16_t l_final_bit_count = l_bitcount - l_bit_pos;
-			std::cout << "reading " << std::dec << l_final_bit_count << " bits..." << std::endl;
+			//std::cout << "reading " << std::dec << l_final_bit_count << " bits..." << std::endl;
 			l_read = a.read_bits(l_final_bit_count);
 			l_read <<= (l_bit_request - l_final_bit_count);
 			l_bit_pos += l_final_bit_count;
@@ -184,6 +197,13 @@ int main(int argc, char **argv)
 	std::cout << "l_test    " << l_test.as_hex_str_nospace() << std::endl;
 	std::cout << "l_decomp  " << l_decomp.as_hex_str_nospace() << std::endl;
 	std::cout << "l_test == l_decomp: " << std::boolalpha << (l_test == l_decomp) << std::endl;
+
+	// test with a disk file
+	ss::data l_diskfile;
+	l_diskfile.load_file("main.cc");
+	ss::data l_diskfile_comp = range_encode(l_diskfile);
+	ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
+	std::cout << "l_diskfile == l_diskfile_decomp: " << std::boolalpha << (l_diskfile == l_diskfile_decomp) << std::endl;
 
 	return 0;
 }
