@@ -7,7 +7,7 @@
 #include "data.h"
 
 struct symbol {
-	std::uint8_t count;
+	std::uint16_t count;
 	std::uint64_t lo;
 	std::uint64_t hi;
 	std::uint64_t size;
