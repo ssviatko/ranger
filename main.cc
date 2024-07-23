@@ -26,7 +26,7 @@ void assign_ranges(std::uint64_t a_lo, std::uint64_t a_hi)
 	std::cout << "characterizing range a_lo " << std::hex << std::setfill('0') << std::setw(16) << a_lo << " a_hi " << a_hi << " size " << (a_hi - a_lo) << std::endl;
 	// assign ranges
 	std::uint64_t l_lasthigh = a_lo;
-	std::uint16_t l_accumulator = 0;
+	std::uint32_t l_accumulator = 0;
 	m_min_range = ULLONG_MAX;
 	for (std::size_t i = 0; i < 256; ++i) {
 		if (m_probs[i].count > 0) {
