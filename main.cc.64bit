@@ -9,22 +9,24 @@
 
 struct symbol {
 	std::uint32_t count;
-	std::uint32_t lo;
-	std::uint32_t hi;
-	std::uint32_t size;
+	std::uint64_t lo;
+	std::uint64_t hi;
+	std::uint64_t size;
 };
 
+const std::uint64_t m_bailout = 65536;
 const std::uint32_t m_cookie = 0xaa5b96dd;
 std::array<symbol, 256> m_probs;
 std::uint32_t m_message_len;
+std::uint64_t m_min_range;
 std::uint32_t m_max_count;
 
 void assign_ranges(std::uint64_t a_lo, std::uint64_t a_hi)
 {
-	std::cout << "characterizing range a_lo " << std::hex << std::setfill('0') << std::setw(8) << a_lo << " a_hi " << a_hi << " size " << (a_hi - a_lo) << std::endl;
+	std::cout << "characterizing range a_lo " << std::hex << std::setfill('0') << std::setw(16) << a_lo << " a_hi " << a_hi << " size " << (a_hi - a_lo) << std::endl;
 	// assign ranges
-	std::uint32_t l_lasthigh = a_lo;
-	std::uint32_t l_accumulator = 0;
+	std::uint64_t l_lasthigh = a_lo;
+	std::uint16_t l_accumulator = 0;
 	m_min_range = ULLONG_MAX;
 	for (std::size_t i = 0; i < 256; ++i) {
 		if (m_probs[i].count > 0) {
@@ -42,11 +44,10 @@ void assign_ranges(std::uint64_t a_lo, std::uint64_t a_hi)
 	}
 }
 
-ss::data range_encode(ss::data& a_data, std::size_t a_len)
+ss::data range_encode(ss::data& a_data)
 {
 	m_message_len = a_data.size();
 	ss::data l_bitstream;
-	ss::data l_comp;
 
 	// compute probabilities
 	for (std::size_t i = 0; i < 256; ++i)
@@ -61,7 +62,6 @@ ss::data range_encode(ss::data& a_data, std::size_t a_len)
 	std::uint64_t l_work_lo = 0;
 	std::uint64_t l_work_hi = ULLONG_MAX;
 	assign_ranges(l_work_lo, l_work_hi);
-	return l_comp;
 	std::uint16_t l_bitcount = 0;
 	for (std::size_t i = 0; i < m_message_len; ++i) {
 		if (m_min_range < m_bailout) {
@@ -125,6 +125,7 @@ ss::data range_encode(ss::data& a_data, std::size_t a_len)
 			l_cnttbl_enum.write_bits(m_probs[i].count, l_cntwidth);
 		}
 	}
+	ss::data l_comp;
 	l_comp.set_network_byte_order(true);
 	// write header
 	l_comp.write_uint32(m_cookie);
@@ -141,7 +142,7 @@ ss::data range_encode(ss::data& a_data, std::size_t a_len)
 	l_comp += l_bitstream;
 	return l_comp;
 }
-/*
+
 ss::data range_decode(ss::data& a_data)
 {
 	ss::data l_ret;
@@ -266,7 +267,7 @@ ss::data range_decode(ss::data& a_data)
 		assign_ranges(l_lo, l_hi);
 	}
 }
-*/
+
 int main(int argc, char **argv)
 {
 //	ss::data l_test;
@@ -281,10 +282,10 @@ int main(int argc, char **argv)
 	ss::data l_diskfile;
 	//l_diskfile.load_file("./lib/libss2xdata.so.1.0.0");
 	l_diskfile.load_file("main.o");
-	ss::data l_diskfile_comp = range_encode(l_diskfile, 20);
-//	ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
-//	std::cout << "diskfile len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << std::endl;
-//	std::cout << "l_diskfile == l_diskfile_decomp: " << std::boolalpha << (l_diskfile == l_diskfile_decomp) << std::endl;
+	ss::data l_diskfile_comp = range_encode(l_diskfile);
+	ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
+	std::cout << "diskfile len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << std::endl;
+	std::cout << "l_diskfile == l_diskfile_decomp: " << std::boolalpha << (l_diskfile == l_diskfile_decomp) << std::endl;
 
 	return 0;
 }
