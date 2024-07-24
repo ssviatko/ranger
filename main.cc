@@ -33,17 +33,21 @@ std::uint32_t m_max_count;
 
 void assign_ranges(std::uint64_t a_lo, std::uint64_t a_hi)
 {
-	//std::cout << "characterizing range a_lo " << std::hex << std::setfill('0') << std::setw(16) << a_lo << " a_hi " << a_hi << " size " << (a_hi - a_lo) << std::endl;
+	std::cout << "characterizing range a_lo " << std::hex << std::setfill('0') << std::setw(16) << a_lo << " a_hi " << a_hi << " size " << (a_hi - a_lo) << std::endl;
+	if (a_hi == a_lo) {
+		std::cout << "can't characterize a zero size range." << std::endl;
+		exit(EXIT_FAILURE);
+	}
 	// assign ranges
 	std::uint64_t l_lasthigh = a_lo;
 	std::uint64_t l_accumulator = 0;
 	m_min_range = ULLONG_MAX;
 	for (std::size_t i = 0; i < 256; ++i) {
 		if (m_probs[i].count > 0) {
-			double l_rangetop = (double)(m_probs[i].count + l_accumulator) / (double)m_message_len;
+			long double l_rangetop = (long double)(m_probs[i].count + l_accumulator) / (long double)m_message_len;
 			//std::cout << "m_probs[i].count " << std::dec << m_probs[i].count << " l_accumulator " << l_accumulator << " message_len " << m_message_len << " l_rangetop " << std::setprecision(15) << l_rangetop << std::endl;
 			m_probs[i].lo = l_lasthigh;
-			m_probs[i].hi = a_lo + (std::uint64_t)(l_rangetop * (double)(a_hi - a_lo));
+			m_probs[i].hi = a_lo + (std::uint64_t)(l_rangetop * (long double)(a_hi - a_lo));
 			if ((a_hi == ULLONG_MAX) && (l_rangetop == 1.0)) {
 				m_probs[i].hi = ULLONG_MAX;
 			}
@@ -81,12 +85,12 @@ ss::data range_encode(ss::data& a_data, std::size_t a_len)
 	for (std::size_t i = 0; i < m_message_len; ++i) {
 		if (i >= a_len)
 			break;
-		//std::cout << "encode loop: position " << i << " read symbol " << std::hex << std::setfill('0') << std::setw(2) << (int)a_data[i] << std::endl;
+		std::cout << "encode loop: position " << i << " read symbol " << std::hex << std::setfill('0') << std::setw(2) << (int)a_data[i] << std::endl;
 		l_work_lo.val = m_probs[a_data[i]].lo;
 		l_work_hi.val = m_probs[a_data[i]].hi;
 		assign_ranges(l_work_lo.val, l_work_hi.val);
 		while (l_work_lo.hibyte == l_work_hi.hibyte) {
-			//std::cout << "--- normalizing... writing " << std::hex << (int)l_work_lo.hibyte << std::endl;
+			std::cout << "--- normalizing... writing " << std::hex << (int)l_work_lo.hibyte << std::endl;
 			l_bitstream.write_uint8(l_work_lo.hibyte);
 			l_work_lo.val <<= 8;
 			l_work_hi.val <<= 8;
@@ -209,7 +213,7 @@ ss::data range_decode(ss::data& a_data)
 		bool l_found = false;
 		for (std::size_t i = 0; i < 256; ++i) {
 			if ((l_work.val <= m_probs[i].hi) && (l_work.val >= m_probs[i].lo) && (m_probs[i].count > 0)) {
-				std::cout << "pos " << std::dec << l_pos << " decoded symbol " << std::hex << std::setw(2) << i << " = " << (char)i << std::endl;
+				//std::cout << "pos " << std::dec << l_pos << " decoded symbol " << std::hex << std::setw(2) << i << " = " << (char)i << std::endl;
 				l_ret.write_uint8(i);
 				l_pos++;
 				l_found = true;
@@ -258,7 +262,7 @@ int main(int argc, char **argv)
 //	std::cout << "l_test == l_decomp: " << std::boolalpha << (l_test == l_decomp) << std::endl;
 	// test with a disk file
 	ss::data l_diskfile;
-	l_diskfile.load_file("../nbc/de-motiv-core/librist.so.4.0.0");
+	l_diskfile.load_file("../nbc/motiv-core/main.o");
 	ss::data l_diskfile_comp = range_encode(l_diskfile, l_diskfile.size());
 	ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
 	std::cout << "diskfile len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << " l_diskfile == l_diskfile_decomp: " << std::boolalpha << (l_diskfile == l_diskfile_decomp) << std::endl;
