@@ -33,7 +33,7 @@ std::uint32_t m_max_count;
 
 void assign_ranges(std::uint64_t a_lo, std::uint64_t a_hi)
 {
-	std::cout << "characterizing range a_lo " << std::hex << std::setfill('0') << std::setw(16) << a_lo << " a_hi " << a_hi << " size " << (a_hi - a_lo) << std::endl;
+	//std::cout << "characterizing range a_lo " << std::hex << std::setfill('0') << std::setw(16) << a_lo << " a_hi " << a_hi << " size " << (a_hi - a_lo) << std::endl;
 	if (a_hi == a_lo) {
 		std::cout << "can't characterize a zero size range." << std::endl;
 		exit(EXIT_FAILURE);
@@ -85,15 +85,18 @@ ss::data range_encode(ss::data& a_data, std::size_t a_len)
 	for (std::size_t i = 0; i < m_message_len; ++i) {
 		if (i >= a_len)
 			break;
-		std::cout << "encode loop: position " << i << " read symbol " << std::hex << std::setfill('0') << std::setw(2) << (int)a_data[i] << std::endl;
+		if ((i % 100000) == 0)
+			std::cout << ".";
+		//std::cout << "encode loop: position " << i << " read symbol " << std::hex << std::setfill('0') << std::setw(2) << (int)a_data[i] << std::endl;
 		l_work_lo.val = m_probs[a_data[i]].lo;
 		l_work_hi.val = m_probs[a_data[i]].hi;
 		assign_ranges(l_work_lo.val, l_work_hi.val);
 		while (l_work_lo.hibyte == l_work_hi.hibyte) {
-			std::cout << "--- normalizing... writing " << std::hex << (int)l_work_lo.hibyte << std::endl;
+			//std::cout << "--- normalizing... writing " << std::hex << (int)l_work_lo.hibyte << std::endl;
 			l_bitstream.write_uint8(l_work_lo.hibyte);
 			l_work_lo.val <<= 8;
 			l_work_hi.val <<= 8;
+			l_work_hi.lobyte = 0xff;
 			assign_ranges(l_work_lo.val, l_work_hi.val);
 		}
 	}
@@ -224,6 +227,7 @@ ss::data range_decode(ss::data& a_data)
 				while (l_lo.hibyte == l_hi.hibyte) {
 					l_lo.val <<= 8;
 					l_hi.val <<= 8;
+					l_hi.lobyte = 0xff;
 					l_work.val <<= 8;
 					l_work.lobyte = a_data.read_uint8();
 					//std::cout << "---read from bitstream: " << std::hex << (int)l_work.lobyte << std::endl;
@@ -262,7 +266,7 @@ int main(int argc, char **argv)
 //	std::cout << "l_test == l_decomp: " << std::boolalpha << (l_test == l_decomp) << std::endl;
 	// test with a disk file
 	ss::data l_diskfile;
-	l_diskfile.load_file("../nbc/motiv-core/main.o");
+	l_diskfile.load_file("../nbc/motiv-core/.git/objects/pack/pack-378a6782d4cf1584f92148ceda7b86fe28ed8598.pack");
 	ss::data l_diskfile_comp = range_encode(l_diskfile, l_diskfile.size());
 	ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
 	std::cout << "diskfile len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << " l_diskfile == l_diskfile_decomp: " << std::boolalpha << (l_diskfile == l_diskfile_decomp) << std::endl;
