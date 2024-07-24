@@ -209,7 +209,7 @@ ss::data range_decode(ss::data& a_data)
 		bool l_found = false;
 		for (std::size_t i = 0; i < 256; ++i) {
 			if ((l_work.val <= m_probs[i].hi) && (l_work.val >= m_probs[i].lo) && (m_probs[i].count > 0)) {
-				//std::cout << "pos " << std::dec << l_pos << " decoded symbol " << std::hex << std::setw(2) << i << " = " << (char)i << std::endl;
+				std::cout << "pos " << std::dec << l_pos << " decoded symbol " << std::hex << std::setw(2) << i << " = " << (char)i << std::endl;
 				l_ret.write_uint8(i);
 				l_pos++;
 				l_found = true;
@@ -232,7 +232,8 @@ ss::data range_decode(ss::data& a_data)
 			break;
 		if (!l_found) {
 			// exhausted the for loop... didn't find the range. Fatal error
-			std::cout << "unable to find range for work " << std::hex << l_work.val << std::endl;
+			std::cout << "unable to find range for work " << std::hex << l_work.val << " at pos " << std::dec << l_pos << std::endl;
+			std::cout << "l_lo.val " << std::hex << l_lo.val << " l_hi.val " << l_hi.val << std::endl;
 			for (std::size_t i = 0; i < 256; ++i) {
 				if (m_probs[i].count > 0) {
 					std::cout << "sym " << std::hex << (int)i << " count " << std::dec << std::setfill(' ') << std::setw(0) << (int)m_probs[i].count << std::hex << std::setfill('0') << std::setw(16) << " l_sym.lo " << m_probs[i].lo << " l_sym.hi " << m_probs[i].hi << std::dec << " size " << m_probs[i].size << std::endl;
@@ -256,11 +257,12 @@ int main(int argc, char **argv)
 //	std::cout << "l_decomp  " << l_decomp.as_hex_str_nospace() << std::endl;
 //	std::cout << "l_test == l_decomp: " << std::boolalpha << (l_test == l_decomp) << std::endl;
 	// test with a disk file
-//	ss::data l_diskfile;
-//	l_diskfile.load_file("onefile");
-//	ss::data l_diskfile_comp = range_encode(l_diskfile, l_diskfile.size());
-//	ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
-//	std::cout << "diskfile len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << " l_diskfile == l_diskfile_decomp: " << std::boolalpha << (l_diskfile == l_diskfile_decomp) << std::endl;
+	ss::data l_diskfile;
+	l_diskfile.load_file("../nbc/de-motiv-core/librist.so.4.0.0");
+	ss::data l_diskfile_comp = range_encode(l_diskfile, l_diskfile.size());
+	ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
+	std::cout << "diskfile len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << " l_diskfile == l_diskfile_decomp: " << std::boolalpha << (l_diskfile == l_diskfile_decomp) << std::endl;
+return 0;
 	for (const auto& l_file : std::filesystem::recursive_directory_iterator("..")) {
 		if ((l_file.is_regular_file()) && (!(l_file.is_symlink()))) {
 			std::cout << "*** attempting to compress: " << l_file.path() << std::endl;
