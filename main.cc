@@ -62,7 +62,7 @@ void assign_ranges(std::uint64_t a_lo, std::uint64_t a_hi)
 	//std::cout << "m_min_range " << std::dec << m_min_range << std::endl;
 }
 
-ss::data range_encode(ss::data& a_data, std::size_t a_len)
+ss::data range_encode(ss::data& a_data)
 {
 	m_message_len = a_data.size();
 	std::uint16_t l_seg_count = 1;
@@ -108,8 +108,6 @@ ss::data range_encode(ss::data& a_data, std::size_t a_len)
 		l_work_hi.val = ULLONG_MAX;
 		assign_ranges(l_work_lo.val, l_work_hi.val);
 		for (std::size_t i = l_segstart; i < l_segend; ++i) {
-			if (i >= a_len)
-				break;
 //			if ((i % 100000) == 0)
 //				std::cout << ".";
 			//std::cout << "encode loop: position " << i << " read symbol " << std::hex << std::setfill('0') << std::setw(2) << (int)a_data[i] << std::endl;
@@ -313,7 +311,7 @@ int main(int argc, char **argv)
 			l_diskfile.load_file(l_file.path());
 			std::cout << " compressing ";
 			std::cout.flush();
-			ss::data l_diskfile_comp = range_encode(l_diskfile, l_diskfile.size());
+			ss::data l_diskfile_comp = range_encode(l_diskfile);
 			std::cout << "decompressing";
 			std::cout.flush();
 			ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
