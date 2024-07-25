@@ -3,6 +3,7 @@
 #include <array>
 #include <bit>
 #include <filesystem>
+#include <functional>
 #include <cstdint>
 #include <climits>
 
@@ -63,7 +64,7 @@ void assign_ranges(std::uint64_t a_lo, std::uint64_t a_hi)
 	//std::cout << "m_min_range " << std::dec << m_min_range << std::endl;
 }
 
-ss::data range_encode(ss::data& a_data)
+ss::data range_encode(ss::data& a_data, std::function<void(std::uint64_t, std::uint64_t)> a_status_cb)
 {
 	m_message_len = a_data.size();
 	std::uint16_t l_seg_count = 1;
@@ -72,7 +73,7 @@ ss::data range_encode(ss::data& a_data)
 		if ((m_message_len % m_seg_max) > 0)
 			l_seg_count++;
 	}
-	std::cout << "preparing to compress " << l_seg_count << " segments." << std::endl;
+	//std::cout << "preparing to compress " << l_seg_count << " segments." << std::endl;
 	// write header
 	ss::data l_comp;
 	l_comp.set_network_byte_order(true);
@@ -92,7 +93,9 @@ ss::data range_encode(ss::data& a_data)
 		if (l_segend > m_message_len)
 			l_segend = l_segstart + (m_message_len - (l_seg * m_seg_max));
 		m_segment_len = l_segend - l_segstart;
-		std::cout << "processing segment " << l_seg + 1 << " segstart " << l_segstart << " segend " << l_segend << std::endl;
+		if (l_seg_count > 1)
+			a_status_cb(l_seg, l_seg_count);
+		//std::cout << "processing segment " << l_seg + 1 << " segstart " << l_segstart << " segend " << l_segend << std::endl;
 
 		// compute probabilities
 		for (std::size_t i = 0; i < 256; ++i)
@@ -128,7 +131,7 @@ ss::data range_encode(ss::data& a_data)
 		}
 		l_bitstream.write_uint64(l_work_lo.val);
 //		std::cout << "wrote final quadword " << std::hex << l_work_lo.val << std::endl;
-		std::cout << "compressed " << std::dec << (l_segend - l_segstart) << " symbols, compressed data len=" << l_bitstream.size() << std::endl;
+//		std::cout << "compressed " << std::dec << (l_segend - l_segstart) << " symbols, compressed data len=" << l_bitstream.size() << std::endl;
 
 		// construct full symbol count table
 //		std::cout << "m_max_count " << std::dec << m_max_count << " bits " << std::bit_width(m_max_count) << std::endl;
@@ -173,7 +176,7 @@ ss::data range_encode(ss::data& a_data)
 	return l_comp;
 }
 
-ss::data range_decode(ss::data& a_data)
+ss::data range_decode(ss::data& a_data, std::function<void(std::uint64_t, std::uint64_t)> a_status_cb)
 {
 	ss::data l_ret;
 
@@ -198,7 +201,9 @@ ss::data range_decode(ss::data& a_data)
 			l_segend = l_segstart + (l_original_size - (l_seg * m_seg_max));
 		m_segment_len = l_segend - l_segstart;
 		std::uint32_t l_seg_bitstream_size = a_data.read_uint24();
-		std::cout << "decoding segment " << l_seg + 1 << " segstart " << l_segstart << " segend " << l_segend << " size " << m_segment_len << " bitstream size " << l_seg_bitstream_size << std::endl;
+		if (l_seg_count > 1)
+			a_status_cb(l_seg, l_seg_count);
+		//std::cout << "decoding segment " << l_seg + 1 << " segstart " << l_segstart << " segend " << l_segend << " size " << m_segment_len << " bitstream size " << l_seg_bitstream_size << std::endl;
 	
 		// read count table
 		ss::data::bit_cursor l_bitcursor;
@@ -301,27 +306,43 @@ ss::data range_decode(ss::data& a_data)
 
 int main(int argc, char **argv)
 {
+	auto l_progress_predicate = [](std::uint64_t curr, std::uint64_t total) {
+		std::cout << "(" << curr << "/" << total << ") " << std::setprecision(4) << ((double)curr / (double)total) * 100 << "% complete" << std::endl;
+	};
+
 	for (const auto& l_file : std::filesystem::recursive_directory_iterator("..")) {
 		if ((l_file.is_regular_file()) && (!(l_file.is_symlink()))) {
 			std::uintmax_t l_file_size = std::filesystem::file_size(l_file);
-			if (l_file_size > 10000000) {
-				std::cout << "******** skipping file " << l_file.path() << " because it is " << l_file_size << " bytes in length." << std::endl;
-				continue;
-			}
+//			if (l_file_size > 10000000) {
+//				std::cout << "******** skipping file " << l_file.path() << " because it is " << l_file_size << " bytes in length." << std::endl;
+//				continue;
+//			}
 			std::cout << "*** attempting to compress: " << l_file.path() << " size " << l_file_size << " loading";
 			std::cout.flush();
 			ss::data l_diskfile;
 			l_diskfile.load_file(l_file.path());
 			std::cout << " compressing ";
 			std::cout.flush();
-			ss::data l_diskfile_comp = range_encode(l_diskfile);
+			ss::data l_diskfile_comp = range_encode(l_diskfile, l_progress_predicate);
 			std::cout << "decompressing";
 			std::cout.flush();
-			ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
+			ss::data l_diskfile_decomp = range_decode(l_diskfile_comp, l_progress_predicate);
+			std::cout << " huffman compressing ";
+			std::cout.flush();
+			ss::data l_diskfile_huffcomp = l_diskfile.huffman_encode();
+			std::cout << " huffman decompressing ";
+			std::cout.flush();
+			ss::data l_diskfile_huffdecomp = l_diskfile_huffcomp.huffman_decode();
 			bool l_passed = (l_diskfile == l_diskfile_decomp);
-			std::cout << std::endl << "diskfile " << l_file.path() << " len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << " l_diskfile == l_diskfile_decomp: " << std::boolalpha << l_passed << std::endl;
+			bool l_huffpassed = (l_diskfile == l_diskfile_huffdecomp);
+			std::cout << std::endl << "diskfile " << l_file.path() << " len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << std::setprecision(6) << ((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << " l_diskfile == l_diskfile_decomp: " << std::boolalpha << l_passed;
+			std::cout << " huffman check " << l_huffpassed << std::noboolalpha << " huffman len " << l_diskfile_huffcomp.size() << " huffman ratio " << std::setprecision(6) << ((double)l_diskfile_huffcomp.size() / (double)l_diskfile.size() * 100.0) << std::endl;
 			if (!l_passed) {
 				std::cout << "File failed integrity check." << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			if (!l_huffpassed) {
+				std::cout << "huffman encode/decode failed integrity check!!!" << std::endl;
 				exit(EXIT_FAILURE);
 			}
 		}
