@@ -211,7 +211,28 @@ public:
 	// note: platform-specific 16 byte double, ignores endianness setting
 	void write_longdouble(long double a_longdouble);
 	long double read_longdouble();
-	
+
+	/* specializations of basic types to save space */
+
+	// 24 bit integers - unsigned version throws exception if value is >16777216
+	// signed version throws exception if value is outside of range of +/-8M.
+	void write_uint24(std::uint32_t a_uint32);
+	std::uint32_t read_uint24();
+	void write_int24(std::int32_t a_int32);
+	std::int32_t read_int24();
+
+	// 40 bit integers
+	void write_uint40(std::uint64_t a_uint64);
+	std::uint64_t read_uint40();
+	void write_int40(std::int64_t a_int64);
+	std::int64_t read_int40();
+
+	// 48 bit integers
+	void write_uint48(std::uint64_t a_uint64);
+	std::uint64_t read_uint48();
+	void write_int48(std::int64_t a_int64);
+	std::int64_t read_int48();
+
 	/* strings */
 	
 	void set_delimiter(std::uint8_t a_delimiter) { m_delimiter = a_delimiter; };

@@ -82,7 +82,7 @@ ss::data range_encode(ss::data& a_data)
 		l_comp.write_uint16(m_cookie_multi);
 		l_comp.write_uint16(l_seg_count);
 	}
-	l_comp.write_uint64(m_message_len);
+	l_comp.write_uint40(m_message_len);
 
 	for (std::size_t l_seg = 0; l_seg < l_seg_count; ++l_seg) {
 		ss::data l_bitstream;
@@ -157,7 +157,7 @@ ss::data range_encode(ss::data& a_data)
 			}
 		}
 
-		l_comp.write_uint32(l_bitstream.size());
+		l_comp.write_uint24(l_bitstream.size());
 		// append frequency table, whichever one is smaller
 //		std::cout << "cnttbl_full " << std::dec << l_cnttbl_full.size() << " cnttbl_enum " << l_cnttbl_enum.size() << std::endl;
 		if (l_cnttbl_full.size() < l_cnttbl_enum.size()) {
@@ -188,7 +188,7 @@ ss::data range_decode(ss::data& a_data)
 	if (l_cookie == m_cookie_multi) {
 		l_seg_count = a_data.read_uint16();
 	}
-	std::uint64_t l_original_size = a_data.read_uint64();
+	std::uint64_t l_original_size = a_data.read_uint40();
 //	std::cout << "original size " << std::dec << l_original_size << std::endl;
 
 	for (std::size_t l_seg = 0; l_seg < l_seg_count; ++l_seg) {
@@ -197,7 +197,7 @@ ss::data range_decode(ss::data& a_data)
 		if (l_segend > l_original_size)
 			l_segend = l_segstart + (l_original_size - (l_seg * m_seg_max));
 		m_segment_len = l_segend - l_segstart;
-		std::uint32_t l_seg_bitstream_size = a_data.read_uint32();
+		std::uint32_t l_seg_bitstream_size = a_data.read_uint24();
 		std::cout << "decoding segment " << l_seg + 1 << " segstart " << l_segstart << " segend " << l_segend << " size " << m_segment_len << " bitstream size " << l_seg_bitstream_size << std::endl;
 	
 		// read count table
