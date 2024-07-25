@@ -95,6 +95,7 @@ ss::data range_encode(ss::data& a_data)
 		// compute probabilities
 		for (std::size_t i = 0; i < 256; ++i)
 			m_probs[i] = { 0, 0, 0, 0 }; // init them
+//		std::cout << "characterizing probabilities for " << l_segstart << ", " << l_segend << std::endl;
 		for (std::size_t i = l_segstart; i < l_segend; ++i) 
 			m_probs[a_data[i]].count++;
 		// find max symbol count
@@ -125,7 +126,7 @@ ss::data range_encode(ss::data& a_data)
 		}
 		l_bitstream.write_uint64(l_work_lo.val);
 //		std::cout << "wrote final quadword " << std::hex << l_work_lo.val << std::endl;
-//		std::cout << "compressed " << std::dec << a_len << " symbols, compressed data len=" << l_bitstream.size() << std::endl;
+		std::cout << "compressed " << std::dec << (l_segend - l_segstart) << " symbols, compressed data len=" << l_bitstream.size() << std::endl;
 
 		// construct full symbol count table
 //		std::cout << "m_max_count " << std::dec << m_max_count << " bits " << std::bit_width(m_max_count) << std::endl;
