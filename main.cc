@@ -24,8 +24,8 @@ struct symbol {
 	std::uint64_t size;
 };
 
-const std::uint64_t m_guard_size = 16777216;
 const std::uint32_t m_cookie = 0xaa5b96dd;
+const std::uint32_t m_cookie_multi = 0xaadc5d36;
 std::array<symbol, 256> m_probs;
 std::uint32_t m_message_len;
 std::uint64_t m_min_range;
@@ -256,21 +256,6 @@ ss::data range_decode(ss::data& a_data)
 
 int main(int argc, char **argv)
 {
-//	ss::data l_test;
-//	l_test.write_std_str("Now is the time for all good men to pull up their pants and stop wanking it to porn. There is no reason for this shit to continue, it is bad for society and has little if any positive benefit.");
-//	l_test.write_std_str("here is some more text to work with to pad out the size of our buffer so that we can get a better picture of what's going on here. I want to have some good data to use here as a test vector!");
-//	ss::data l_comp = range_encode(l_test);
-//	ss::data l_decomp = range_decode(l_comp);
-//	std::cout << "l_test    " << l_test.as_hex_str_nospace() << std::endl;
-//	std::cout << "l_decomp  " << l_decomp.as_hex_str_nospace() << std::endl;
-//	std::cout << "l_test == l_decomp: " << std::boolalpha << (l_test == l_decomp) << std::endl;
-	// test with a disk file
-//	ss::data l_diskfile;
-//	l_diskfile.load_file("../nbc/motiv-core/.git/objects/pack/pack-378a6782d4cf1584f92148ceda7b86fe28ed8598.pack");
-//	ss::data l_diskfile_comp = range_encode(l_diskfile, l_diskfile.size());
-//	ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
-//	std::cout << "diskfile len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << " l_diskfile == l_diskfile_decomp: " << std::boolalpha << (l_diskfile == l_diskfile_decomp) << std::endl;
-//return 0;
 	for (const auto& l_file : std::filesystem::recursive_directory_iterator("..")) {
 		if ((l_file.is_regular_file()) && (!(l_file.is_symlink()))) {
 			std::uintmax_t l_file_size = std::filesystem::file_size(l_file);
