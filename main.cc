@@ -29,6 +29,7 @@ const std::uint32_t m_cookie_multi = 0xaadc5d36;
 const std::size_t m_seg_max = 65536;
 std::array<symbol, 256> m_probs;
 std::uint32_t m_message_len;
+std::uint32_t m_segment_len;
 std::uint64_t m_min_range;
 std::uint32_t m_max_count;
 
@@ -45,8 +46,8 @@ void assign_ranges(std::uint64_t a_lo, std::uint64_t a_hi)
 	m_min_range = ULLONG_MAX;
 	for (std::size_t i = 0; i < 256; ++i) {
 		if (m_probs[i].count > 0) {
-			long double l_rangetop = (long double)(m_probs[i].count + l_accumulator) / (long double)m_message_len;
-			//std::cout << "m_probs[i].count " << std::dec << m_probs[i].count << " l_accumulator " << l_accumulator << " message_len " << m_message_len << " l_rangetop " << std::setprecision(15) << l_rangetop << std::endl;
+			long double l_rangetop = (long double)(m_probs[i].count + l_accumulator) / (long double)m_segment_len;
+			//std::cout << "m_probs[i].count " << std::dec << m_probs[i].count << " l_accumulator " << l_accumulator << " segment_len " << m_segment_len << " l_rangetop " << std::setprecision(15) << l_rangetop << std::endl;
 			m_probs[i].lo = l_lasthigh;
 			m_probs[i].hi = a_lo + (std::uint64_t)(l_rangetop * (long double)(a_hi - a_lo));
 			if ((a_hi == ULLONG_MAX) && (l_rangetop == 1.0)) {
@@ -90,6 +91,7 @@ ss::data range_encode(ss::data& a_data)
 		std::size_t l_segend = ((l_seg + 1) * m_seg_max);
 		if (l_segend > m_message_len)
 			l_segend = l_segstart + (m_message_len - (l_seg * m_seg_max));
+		m_segment_len = l_segend - l_segstart;
 		std::cout << "processing segment " << l_seg + 1 << " segstart " << l_segstart << " segend " << l_segend << std::endl;
 
 		// compute probabilities
@@ -194,9 +196,9 @@ ss::data range_decode(ss::data& a_data)
 		std::size_t l_segend = ((l_seg + 1) * m_seg_max);
 		if (l_segend > l_original_size)
 			l_segend = l_segstart + (l_original_size - (l_seg * m_seg_max));
-		std::size_t l_segsize = l_segend - l_segstart;
+		m_segment_len = l_segend - l_segstart;
 		std::uint32_t l_seg_bitstream_size = a_data.read_uint32();
-		std::cout << "decoding segment " << l_seg + 1 << " segstart " << l_segstart << " segend " << l_segend << " size " << l_segsize << " bitstream size " << l_seg_bitstream_size << std::endl;
+		std::cout << "decoding segment " << l_seg + 1 << " segstart " << l_segstart << " segend " << l_segend << " size " << m_segment_len << " bitstream size " << l_seg_bitstream_size << std::endl;
 	
 		// read count table
 		ss::data::bit_cursor l_bitcursor;
@@ -274,7 +276,7 @@ ss::data range_decode(ss::data& a_data)
 					break;
 				}
 			}
-			if (l_pos >= l_segsize)
+			if (l_pos >= m_segment_len)
 				break;
 			if (!l_found) {
 				// exhausted the for loop... didn't find the range. Fatal error
