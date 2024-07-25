@@ -85,8 +85,8 @@ ss::data range_encode(ss::data& a_data, std::size_t a_len)
 	for (std::size_t i = 0; i < m_message_len; ++i) {
 		if (i >= a_len)
 			break;
-		if ((i % 100000) == 0)
-			std::cout << ".";
+//		if ((i % 100000) == 0)
+//			std::cout << ".";
 		//std::cout << "encode loop: position " << i << " read symbol " << std::hex << std::setfill('0') << std::setw(2) << (int)a_data[i] << std::endl;
 		l_work_lo.val = m_probs[a_data[i]].lo;
 		l_work_hi.val = m_probs[a_data[i]].hi;
@@ -101,10 +101,10 @@ ss::data range_encode(ss::data& a_data, std::size_t a_len)
 		}
 	}
 	l_bitstream.write_uint64(l_work_lo.val);
-	std::cout << "compressed " << std::dec << a_len << " symbols, compressed data len=" << l_bitstream.size() << std::endl;
+//	std::cout << "compressed " << std::dec << a_len << " symbols, compressed data len=" << l_bitstream.size() << std::endl;
 
 	// construct full symbol count table
-	std::cout << "m_max_count " << std::dec << m_max_count << " bits " << std::bit_width(m_max_count) << std::endl;
+//	std::cout << "m_max_count " << std::dec << m_max_count << " bits " << std::bit_width(m_max_count) << std::endl;
 	ss::data l_cnttbl_full;
 	l_cnttbl_full.write_bit(false);
 	std::uint64_t l_cntwidth = 0;
@@ -136,7 +136,7 @@ ss::data range_encode(ss::data& a_data, std::size_t a_len)
 	l_comp.write_uint32(m_cookie);
 	l_comp.write_uint32(a_len);
 	// append frequency table, whichever one is smaller
-	std::cout << "cnttbl_full " << std::dec << l_cnttbl_full.size() << " cnttbl_enum " << l_cnttbl_enum.size() << std::endl;
+//	std::cout << "cnttbl_full " << std::dec << l_cnttbl_full.size() << " cnttbl_enum " << l_cnttbl_enum.size() << std::endl;
 	if (l_cnttbl_full.size() < l_cnttbl_enum.size()) {
 		l_comp += l_cnttbl_full;
 	} else {
@@ -145,7 +145,7 @@ ss::data range_encode(ss::data& a_data, std::size_t a_len)
 	// append bitstream
 	l_comp += l_bitstream;
 
-	std::cout << "full compressed package (with header+count table) " << std::dec << l_comp.size() << " bytes." << std::endl;
+//	std::cout << "full compressed package (with header+count table) " << std::dec << l_comp.size() << " bytes." << std::endl;
 	return l_comp;
 }
 
@@ -161,7 +161,7 @@ ss::data range_decode(ss::data& a_data)
 		exit(EXIT_FAILURE);
 	}
 	std::uint32_t l_original_size = a_data.read_uint32();
-	std::cout << "original size " << std::dec << l_original_size << std::endl;
+//	std::cout << "original size " << std::dec << l_original_size << std::endl;
 
 	// read count table
 	ss::data::bit_cursor l_bitcursor;
@@ -169,7 +169,7 @@ ss::data range_decode(ss::data& a_data)
 	a_data.set_read_bit_cursor(l_bitcursor);
 	bool l_is_enumerated = a_data.read_bit();
 	if (l_is_enumerated) {
-		std::cout << "reading enumerated count table..." << std::endl;
+//		std::cout << "reading enumerated count table..." << std::endl;
 		// read enumerated count table
 		std::uint64_t l_cntwidth = a_data.read_bits(5);
 		std::uint8_t l_enum_entries = a_data.read_bits(8);
@@ -186,7 +186,7 @@ ss::data range_decode(ss::data& a_data)
 			m_probs[l_symbol].count = l_frequency;
 		}
 	} else {
-		std::cout << "reading full count table..." << std::endl;
+//		std::cout << "reading full count table..." << std::endl;
 		// read full count table
 		std::uint64_t l_cntwidth = a_data.read_bits(5);
 		for (std::size_t i = 0; i < 256; ++i) {
@@ -209,7 +209,7 @@ ss::data range_decode(ss::data& a_data)
 	hidetect l_hi;
 	l_lo.val = 0;
 	l_hi.val = ULLONG_MAX;
-	std::cout << "range_decode: starting with work value " << std::hex << std::setfill('0') << std::setw(16) << l_work.val << std::endl;
+	//std::cout << "range_decode: starting with work value " << std::hex << std::setfill('0') << std::setw(16) << l_work.val << std::endl;
 
 	std::uint32_t l_pos = 0;
 	while (1) {
@@ -265,20 +265,35 @@ int main(int argc, char **argv)
 //	std::cout << "l_decomp  " << l_decomp.as_hex_str_nospace() << std::endl;
 //	std::cout << "l_test == l_decomp: " << std::boolalpha << (l_test == l_decomp) << std::endl;
 	// test with a disk file
-	ss::data l_diskfile;
-	l_diskfile.load_file("../nbc/motiv-core/.git/objects/pack/pack-378a6782d4cf1584f92148ceda7b86fe28ed8598.pack");
-	ss::data l_diskfile_comp = range_encode(l_diskfile, l_diskfile.size());
-	ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
-	std::cout << "diskfile len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << " l_diskfile == l_diskfile_decomp: " << std::boolalpha << (l_diskfile == l_diskfile_decomp) << std::endl;
-return 0;
+//	ss::data l_diskfile;
+//	l_diskfile.load_file("../nbc/motiv-core/.git/objects/pack/pack-378a6782d4cf1584f92148ceda7b86fe28ed8598.pack");
+//	ss::data l_diskfile_comp = range_encode(l_diskfile, l_diskfile.size());
+//	ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
+//	std::cout << "diskfile len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << " l_diskfile == l_diskfile_decomp: " << std::boolalpha << (l_diskfile == l_diskfile_decomp) << std::endl;
+//return 0;
 	for (const auto& l_file : std::filesystem::recursive_directory_iterator("..")) {
 		if ((l_file.is_regular_file()) && (!(l_file.is_symlink()))) {
-			std::cout << "*** attempting to compress: " << l_file.path() << std::endl;
+			std::uintmax_t l_file_size = std::filesystem::file_size(l_file);
+			if (l_file_size > 10000000) {
+				std::cout << "******** skipping file " << l_file.path() << " because it is " << l_file_size << " bytes in length." << std::endl;
+				continue;
+			}
+			std::cout << "*** attempting to compress: " << l_file.path() << " size " << l_file_size << " loading";
+			std::cout.flush();
 			ss::data l_diskfile;
 			l_diskfile.load_file(l_file.path());
+			std::cout << " compressing ";
+			std::cout.flush();
 			ss::data l_diskfile_comp = range_encode(l_diskfile, l_diskfile.size());
+			std::cout << "decompressing";
+			std::cout.flush();
 			ss::data l_diskfile_decomp = range_decode(l_diskfile_comp);
-			std::cout << "diskfile " << l_file.path() << " len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << " l_diskfile == l_diskfile_decomp: " << std::boolalpha << (l_diskfile == l_diskfile_decomp) << std::endl;
+			bool l_passed = (l_diskfile == l_diskfile_decomp);
+			std::cout << std::endl << "diskfile " << l_file.path() << " len " << std::dec << l_diskfile.size() << " comp len " << l_diskfile_comp.size() << " decomp len " << l_diskfile_decomp.size() << " ratio " << (double)((double)l_diskfile_comp.size() / (double)l_diskfile.size() * 100.0) << " l_diskfile == l_diskfile_decomp: " << std::boolalpha << l_passed << std::endl;
+			if (!l_passed) {
+				std::cout << "File failed integrity check." << std::endl;
+				exit(EXIT_FAILURE);
+			}
 		}
 	}
 
