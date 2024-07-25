@@ -24,9 +24,9 @@ struct symbol {
 	std::uint64_t size;
 };
 
-const std::uint32_t m_cookie = 0xaa5b96dd;
-const std::uint32_t m_cookie_multi = 0xaadc5d36;
-const std::size_t m_seg_max = 65536;
+const std::uint16_t m_cookie = 0xaa5b;
+const std::uint16_t m_cookie_multi = 0xaadc;
+const std::size_t m_seg_max = 262144;
 std::array<symbol, 256> m_probs;
 std::uint32_t m_message_len;
 std::uint32_t m_segment_len;
@@ -77,9 +77,9 @@ ss::data range_encode(ss::data& a_data)
 	ss::data l_comp;
 	l_comp.set_network_byte_order(true);
 	if (l_seg_count == 1) {
-		l_comp.write_uint32(m_cookie);
+		l_comp.write_uint16(m_cookie);
 	} else {
-		l_comp.write_uint32(m_cookie_multi);
+		l_comp.write_uint16(m_cookie_multi);
 		l_comp.write_uint16(l_seg_count);
 	}
 	l_comp.write_uint64(m_message_len);
@@ -178,7 +178,7 @@ ss::data range_decode(ss::data& a_data)
 	ss::data l_ret;
 
 	a_data.set_network_byte_order(true); // just to be on the safe side
-	std::uint32_t l_cookie = a_data.read_uint32();
+	std::uint16_t l_cookie = a_data.read_uint16();
 	if ((l_cookie != m_cookie) && (l_cookie != m_cookie_multi)) {
 		// cookie error
 		std::cout << "Cookie mismatch" << std::endl;
