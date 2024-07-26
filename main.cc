@@ -310,7 +310,7 @@ int main(int argc, char **argv)
 		std::cout << "(" << curr << "/" << total << ") " << std::setprecision(4) << ((double)curr / (double)total) * 100 << "% complete" << std::endl;
 	};
 
-	for (const auto& l_file : std::filesystem::recursive_directory_iterator("..")) {
+	for (const auto& l_file : std::filesystem::recursive_directory_iterator(".")) {
 		if ((l_file.is_regular_file()) && (!(l_file.is_symlink()))) {
 			std::uintmax_t l_file_size = std::filesystem::file_size(l_file);
 //			if (l_file_size > 10000000) {
