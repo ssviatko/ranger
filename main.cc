@@ -27,9 +27,9 @@ struct symbol {
 
 const std::uint16_t m_cookie = 0xaa5b;
 const std::uint16_t m_cookie_multi = 0xaadc;
-const std::size_t m_seg_max = 262144;
+const std::size_t m_seg_max = 262144; // cannot exceed 16MB.. 24 bit value
 std::array<symbol, 256> m_probs;
-std::uint32_t m_message_len;
+std::uint32_t m_message_len; // cannot exceed 1TB. This should be big enough for most files.
 std::uint32_t m_segment_len;
 std::uint64_t m_min_range;
 std::uint32_t m_max_count;
