@@ -324,7 +324,7 @@ int main(int argc, char **argv)
 			std::cout << " compressing ";
 			std::cout.flush();
 			ss::data l_diskfile_comp = range_encode(l_diskfile, l_progress_predicate);
-			std::cout << "decompressing";
+			std::cout << "decompressing ";
 			std::cout.flush();
 			ss::data l_diskfile_decomp = range_decode(l_diskfile_comp, l_progress_predicate);
 			std::cout << " huffman compressing ";
