@@ -64,7 +64,13 @@ void assign_ranges(std::uint64_t a_lo, std::uint64_t a_hi)
 	//std::cout << "m_min_range " << std::dec << m_min_range << std::endl;
 }
 
-ss::data range_encode(ss::data& a_data, std::function<void(std::uint64_t, std::uint64_t)> a_status_cb)
+void default_predicate(std::uint64_t a_num, std::uint64_t a_denom)
+{
+	// do nothing
+	return;
+}
+
+ss::data range_encode(ss::data& a_data, std::function<void(std::uint64_t, std::uint64_t)> a_status_cb = default_predicate)
 {
 	m_message_len = a_data.size();
 	std::uint16_t l_seg_count = 1;
@@ -176,7 +182,7 @@ ss::data range_encode(ss::data& a_data, std::function<void(std::uint64_t, std::u
 	return l_comp;
 }
 
-ss::data range_decode(ss::data& a_data, std::function<void(std::uint64_t, std::uint64_t)> a_status_cb)
+ss::data range_decode(ss::data& a_data, std::function<void(std::uint64_t, std::uint64_t)> a_status_cb = default_predicate)
 {
 	ss::data l_ret;
 
@@ -306,9 +312,9 @@ ss::data range_decode(ss::data& a_data, std::function<void(std::uint64_t, std::u
 
 int main(int argc, char **argv)
 {
-	auto l_progress_predicate = [](std::uint64_t curr, std::uint64_t total) {
-		std::cout << "(" << curr << "/" << total << ") " << std::setprecision(4) << ((double)curr / (double)total) * 100 << "% complete" << std::endl;
-	};
+//	auto l_progress_predicate = [](std::uint64_t curr, std::uint64_t total) {
+//		std::cout << "(" << curr << "/" << total << ") " << std::setprecision(4) << ((double)curr / (double)total) * 100 << "% complete" << std::endl;
+//	};
 
 	for (const auto& l_file : std::filesystem::recursive_directory_iterator(".")) {
 		if ((l_file.is_regular_file()) && (!(l_file.is_symlink()))) {
@@ -323,10 +329,14 @@ int main(int argc, char **argv)
 			l_diskfile.load_file(l_file.path());
 			std::cout << " compressing ";
 			std::cout.flush();
-			ss::data l_diskfile_comp = range_encode(l_diskfile, l_progress_predicate);
+			ss::data l_diskfile_rle = l_diskfile.rle_encode();
+//			ss::data l_diskfile_comp = range_encode(l_diskfile_rle, l_progress_predicate);
+			ss::data l_diskfile_comp = range_encode(l_diskfile_rle);
 			std::cout << "decompressing ";
 			std::cout.flush();
-			ss::data l_diskfile_decomp = range_decode(l_diskfile_comp, l_progress_predicate);
+//			ss::data l_diskfile_decomp_rle = range_decode(l_diskfile_comp, l_progress_predicate);
+			ss::data l_diskfile_decomp_rle = range_decode(l_diskfile_comp);
+			ss::data l_diskfile_decomp = l_diskfile_decomp_rle.rle_decode();
 			std::cout << " huffman compressing ";
 			std::cout.flush();
 			ss::data l_diskfile_huffcomp = l_diskfile.huffman_encode();
