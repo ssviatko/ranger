@@ -1,16 +1,16 @@
-INCL = -I.
+INCL = -I../../ss2x/libss2x/.
 BUILD_NUMBER_FILE = build.no
 RELEASE_NUMBER_FILE = release.no
 BUILD_DATE=$$(date +'%Y-%m-%d %H:%M %z %Z')
 BUILD_NUMBER=$$(cat $(BUILD_NUMBER_FILE))
 RELEASE_NUMBER=$$(cat $(RELEASE_NUMBER_FILE))
-CFLAGS = -DBUILD_NUMBER="\"$(BUILD_NUMBER)\"" -DBUILD_DATE="\"$(BUILD_DATE)\"" -DRELEASE_NUMBER="\"$(RELEASE_NUMBER)\"" -Wall -O3 $(INCL)
+CFLAGS = -DBUILD_NUMBER="\"$(BUILD_NUMBER)\"" -DBUILD_DATE="\"$(BUILD_DATE)\"" -DRELEASE_NUMBER="\"$(RELEASE_NUMBER)\"" -std=c++23 -Wall -O3 $(INCL)
 UNAME = $(shell uname)
 CC = gcc
 CPP = g++
 LD = g++
-LDFLAGS = 
-TARGET = cranger
+LDFLAGS = -Wl,-rpath=../../ss2x/libss2x/. -L../../ss2x/libss2x/. -lss2x
+TARGET = ranger
 OBJS = main.o
 
 all: $(TARGET)
