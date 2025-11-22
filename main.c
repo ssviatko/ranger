@@ -8,32 +8,140 @@
 #include <sys/fcntl.h>
 #include <unistd.h>
 
-#define WORKBITS 18
-#define WORKSIZE 262144 ///< 2^BITS
-
-uint8_t work[WORKSIZE];
-size_t work_len;
+#define WORKBITS 19
+#define WORKSIZE 524288 ///< 2^BITS
+#define RANGEMAX 0x10000000000 ///< 2^40, maximum size of range
 
 typedef struct {
-	uint64_t count;
-	uint64_t range_start;
-	uint64_t range_end;
-} freq_entry;
+	uint64_t count; ///< Number of times this symbol occurs in plaintext
+	uint64_t range_start; ///< Low bounds of range
+	uint64_t range_end; ///< High bounds of range
+} freq_entry_t;
 
-freq_entry freq_tbl[256];
+typedef struct {
+	freq_entry_t freq[256]; ///< Frequency table, contains list of ranges for all possible symbols
+	uint8_t freq_comp[1024]; ///< Compressed frequency table, either enumerated or full
+	uint16_t freq_comp_len; ///< Length of compressed frequency table
+	uint8_t plain[WORKSIZE]; ///< Buffer for plaintext to be compressed
+	size_t plain_len; ///< Plaintext length
+	uint8_t comp[WORKSIZE * 2]; ///< Buffer for compressed tokens, larger than plaintext buffer to guard against over-ratio compresions
+	size_t comp_len; ///< Length of compressed token stream
+	uint8_t decomp[WORKSIZE]; ///< Buffer for decompressed data
+	size_t decomp_len; ///< Length of decompressed data
+} carith_comp_ctx;
 
-void freq_count()
+carith_comp_ctx test_comp;
+
+// cbit (C bit manipulation) stuff
+
+typedef struct {
+	uint64_t byte; ///< Byte counter into buffer
+	uint8_t bit; ///< Next bit to manipulate on above byte
+	uint8_t *buffer; ///< Pointer to buffer we are working with
+} cbit_cursor_t;
+
+static uint8_t cbit_byte_mask[] = { 0xfe, 0xfd, 0xfb, 0xf7, 0xef, 0xdf, 0xbf, 0x7f }; ///< Byte mask to mask off requested bit
+
+void cbit_write(cbit_cursor_t *a_cursor, unsigned int a_bit)
 {
-	size_t i;
-	for (i = 0; i < 256; ++i) {
-		freq_tbl[i].count = 0;
-	}
-	for (i = 0; i < work_len; ++i) {
-		freq_tbl[work[i]].count++;
+	// make masks
+	uint8_t l_and = cbit_byte_mask[a_cursor->bit];
+	uint8_t l_or = l_and ^ 0xff;
+
+	// write bit at cursor position
+	a_cursor->buffer[a_cursor->byte] &= l_and;
+	if (a_bit)
+		a_cursor->buffer[a_cursor->byte] |= l_or;
+
+	// advance the cursor
+	if (a_cursor->bit > 0) {
+		--a_cursor->bit;
+	} else {
+		++a_cursor->byte;
+		a_cursor->bit = 7;
 	}
 }
 
-void assign_ranges(uint64_t a_start, uint64_t a_end)
+void cbit_write_many(cbit_cursor_t *a_cursor, uint64_t a_bits, uint16_t a_count)
+{
+	// sanity check our bit count
+	if (!((a_count <= 64) && (a_count > 0))) {
+		fprintf(stderr, "cbit_write_many: insane bit count of %d. bit count must between 1-64.", a_count);
+		exit(EXIT_FAILURE);
+	}
+
+	// shift everything over all the way to the left
+	a_bits <<= (64 - a_count);
+
+	// feed them into write_bit one at a time.
+	while (a_count > 0) {
+		cbit_write(a_cursor, (a_bits & 0x8000000000000000ULL) > 0);
+		a_bits <<= 1;
+		--a_count;
+	}
+}
+
+int cbit_read(cbit_cursor_t *a_cursor)
+{
+	uint8_t l_mask = cbit_byte_mask[a_cursor->bit] ^ 0xff;
+	uint8_t l_byte = a_cursor->buffer[a_cursor->byte] & l_mask;
+
+	// advance the cursor
+	if (a_cursor->bit > 0) {
+		--a_cursor->bit;
+	} else {
+		++a_cursor->byte;
+		a_cursor->bit = 7;
+	}
+
+	return (l_byte > 0); // true, if the bit we requested is set
+}
+
+uint64_t cbit_read_many(cbit_cursor_t *a_cursor, uint16_t a_count)
+{
+	// sanity check our bit count
+	if (!((a_count <= 64) && (a_count > 0))) {
+		fprintf(stderr, "cbit_read_many: insane bit count of %d. bit count must between 1-64.", a_count);
+		exit(EXIT_FAILURE);
+	}
+
+	uint64_t l_ret = 0;
+
+	while (a_count > 0) {
+		l_ret <<= 1;
+		if (cbit_read(a_cursor) > 0)
+			l_ret |= 0x0000000000000001ULL;
+		--a_count;
+	}
+	return l_ret;
+}
+
+uint16_t cbit_bit_width(uint64_t a_val)
+{
+	uint16_t ret = 64;
+
+	while (ret > 0) {
+		if ((a_val & 0x8000000000000000ULL) > 0)
+			return ret;
+		ret--;
+		a_val <<= 1;
+	}
+	return ret;
+}
+
+void freq_count(carith_comp_ctx *ctx)
+{
+	size_t i;
+
+	for (i = 0; i < 256; ++i) {
+		ctx->freq[i].count = 0;
+	}
+	for (i = 0; i < ctx->plain_len; ++i) {
+		ctx->freq[ctx->plain[i]].count++;
+	}
+}
+
+void assign_ranges(carith_comp_ctx *ctx, uint64_t a_start, uint64_t a_end)
 {
 	size_t i;
 	uint64_t l_rangesize = a_end - a_start;
@@ -41,38 +149,251 @@ void assign_ranges(uint64_t a_start, uint64_t a_end)
 	uint64_t l_rangebase = 0;
 
 	for (i = 0; i < 256; ++i) {
-		freq_tbl[i].range_start = a_start + l_rangebase;
-		l_countbase += freq_tbl[i].count;
-		l_rangebase = (l_countbase * l_rangesize) / work_len;
-		freq_tbl[i].range_end = a_start + l_rangebase;
+		ctx->freq[i].range_start = a_start + l_rangebase;
+		l_countbase += ctx->freq[i].count;
+		l_rangebase = (l_countbase * l_rangesize) / ctx->plain_len;
+		ctx->freq[i].range_end = a_start + l_rangebase - 1;
 	}
+//	printf("assign_ranges: lo %010lX hi %010lX\n", a_start, a_end);
+	//	for (j = 0; j < 32; ++j) {
+	//		for (i = 0; i < 8; ++i) {
+	//			size_t k = (j * 8) + i;
+	//			if (ctx->freq[k].count > 0) {
+	//				printf("%02lX: %ld %010lX %010lX  ", k, ctx->freq[k].count, ctx->freq[k].range_start, ctx->freq[k].range_end);
+	//				l++;
+	//				if (l == 5) {
+	//					l = 0;
+	//					printf("\n");
+	//				}
+	//			}
+	//		}
+	//	}
 }
 
-void process()
+void process(carith_comp_ctx *ctx)
 {
-	size_t i, j, l = 0;
+	size_t plain_ptr;
+	uint64_t range_lo, range_hi;
+	uint8_t cur_byte;
+	uint8_t range_lo_hibyte, range_hi_hibyte; // bits 32-40 of the range
+	size_t comp_ptr = 0, decomp_ptr = 0;
+	size_t i;
+	int found;
+	uint64_t window;
 
-	if (work_len == 0)
+	if (ctx->plain_len == 0)
 		return;
 
-	freq_count();
-	assign_ranges(0, 0x10000000000);
-	for (j = 0; j < 32; ++j) {
-		for (i = 0; i < 8; ++i) {
-			size_t k = (j * 8) + i;
-			if (freq_tbl[k].count > 0) {
-				printf("%02lX: %ld %010lX %010lX  ", k, freq_tbl[k].count, freq_tbl[k].range_start, freq_tbl[k].range_end);
-				l++;
-				if (l == 5) {
-					l = 0;
-					printf("\n");
+	freq_count(ctx);
+	range_lo = 0;
+	range_hi = RANGEMAX;
+	assign_ranges(ctx, range_lo, range_hi);
+
+	for (plain_ptr = 0; plain_ptr < ctx->plain_len; ++plain_ptr) {
+		cur_byte = ctx->plain[plain_ptr];
+		range_lo = ctx->freq[cur_byte].range_start;
+		range_hi = ctx->freq[cur_byte].range_end;
+//		printf("pos %ld read %02X new range_lo %010lX range_hi %010lX\n", plain_ptr, cur_byte, range_lo, range_hi);
+		assign_ranges(ctx, range_lo, range_hi);
+		range_lo_hibyte = (range_lo >> 32);
+		range_hi_hibyte = (range_hi >> 32);
+		while (range_lo_hibyte == range_hi_hibyte) {
+			ctx->comp[comp_ptr++] = range_lo_hibyte;
+			range_lo <<= 8;
+			range_lo &= 0x000000ffffffff00;
+			range_hi <<= 8;
+			range_hi &= 0x000000ffffffff00;
+			range_hi |= 0xff;
+			assign_ranges(ctx, range_lo, range_hi);
+			range_lo_hibyte = (range_lo >> 32);
+			range_hi_hibyte = (range_hi >> 32);
+		}
+	}
+	for (i = 0; i < 5; ++i) {
+		range_lo_hibyte = (range_lo >> 32) & 0xff;
+//		printf("comp pos %ld outputting final 5-byte word %02X\n", comp_ptr, range_lo_hibyte);
+		ctx->comp[comp_ptr++] = range_lo_hibyte;
+		range_lo <<= 8;
+	}
+	ctx->comp_len = comp_ptr;
+
+//	printf("process: compressed %ld bytes into %ld.\n", ctx->plain_len, ctx->comp_len);
+
+	uint8_t ftbl_enum[1024];
+	memset(ftbl_enum, 0, 1024);
+	uint16_t ftbl_enum_len;
+	uint16_t ftbl_enum_entries = 0;
+	uint8_t ftbl_full[1024];
+	memset(ftbl_full, 0, 1024);
+	uint16_t ftbl_full_len;
+	uint64_t countmax = 0;
+	for (i = 0; i < 256; ++i) {
+		if (ctx->freq[i].count > countmax)
+			countmax = ctx->freq[i].count;
+	}
+	uint16_t countwidth = cbit_bit_width(countmax);
+	cbit_cursor_t bc;
+
+	// construct enumerated frequency table
+	bc.byte = 0;
+	bc.bit = 7;
+	bc.buffer = ftbl_enum;
+	cbit_write(&bc, 1); // first bit true indicates it's enumerated
+	cbit_write_many(&bc, countwidth, 5); // value 0-31 for countwidth
+	for (i = 0; i < 256; ++i) {
+		if (ctx->freq[i].count > 0)
+			ftbl_enum_entries++;
+	}
+	cbit_write_many(&bc, ftbl_enum_entries, 9); // 0-256 number of active symbols
+	for (i = 0; i < 256; ++i) {
+		if (ctx->freq[i].count > 0) {
+			cbit_write_many(&bc, i, 8);
+			cbit_write_many(&bc, ctx->freq[i].count, countwidth);
+		}
+	}
+	if (bc.bit < 7) {
+		bc.byte++;
+		bc.bit = 7;
+	}
+	ftbl_enum_len = bc.byte;
+//	printf("enumerated frequency table size: %d\n", ftbl_enum_len);
+
+	// construct full frequency table
+	bc.byte = 0;
+	bc.bit = 7;
+	bc.buffer = ftbl_full;
+	cbit_write(&bc, 0); // first bit false indicates it's full
+	cbit_write_many(&bc, countwidth, 5); // value 0-31 for countwidth
+	for (i = 0; i < 256; ++i) {
+		cbit_write_many(&bc, ctx->freq[i].count, countwidth);
+	}
+	if (bc.bit < 7) {
+		bc.byte++;
+		bc.bit = 7;
+	}
+	ftbl_full_len = bc.byte;
+//	printf("full frequency table size: %d\n", ftbl_full_len);
+
+	if (ftbl_enum_len < ftbl_full_len) {
+		memcpy(ctx->freq_comp, ftbl_enum, ftbl_enum_len);
+		ctx->freq_comp_len = ftbl_enum_len;
+	} else {
+		memcpy(ctx->freq_comp, ftbl_full, ftbl_full_len);
+		ctx->freq_comp_len = ftbl_full_len;
+	}
+//	printf("compressed frequency table length: %d\n", ctx->freq_comp_len);
+	uint64_t total_comp_len = ctx->freq_comp_len + ctx->comp_len;
+	printf("==== total compressed size: %ld ratio: %3.5f%%\n", total_comp_len, (float)total_comp_len / (float)ctx->plain_len * 100.0);;
+
+	// obliterate frequency table
+	for (i = 0; i < 256; ++i) {
+		ctx->freq[i].count = 0;
+	}
+
+	// read compressed frequency table
+	bc.byte = 0;
+	bc.bit = 7;
+	bc.buffer = ctx->freq_comp;;
+	int ftbl_type = cbit_read(&bc);
+	if (ftbl_type == 1) {
+		countwidth = cbit_read_many(&bc, 5);
+		ftbl_enum_entries = cbit_read_many(&bc, 9);
+//		printf("read compressed table - countwidth %d ftbl_enum_entries %ld\n", countwidth, ftbl_enum_entries);
+		for (i = 0; i < ftbl_enum_entries; ++i) {
+			uint8_t symbol = cbit_read_many(&bc, 8);
+			uint64_t symbol_count = cbit_read_many(&bc, countwidth);
+			ctx->freq[symbol].count = symbol_count;
+		}
+	} else {
+		countwidth = cbit_read_many(&bc, 5);
+		for (i = 0; i < 256; ++i) {
+			ctx->freq[i].count = cbit_read_many(&bc, countwidth);
+		}
+	}
+
+	// change decomp to plain once this is debugged and tested
+	range_lo = 0;
+	range_hi = RANGEMAX;
+	assign_ranges(ctx, range_lo, range_hi);
+	comp_ptr = 0;
+	decomp_ptr = 0;
+	// prime the pump
+	window = 0;
+	for (i = 0; i < 5; ++i) {
+		window <<= 8;
+		window |= ctx->comp[comp_ptr++];
+	}
+
+	while (1) {
+		found = 0; // keep track of whether or not we found the range. If we didn't find the range, this is a fatal error!
+//		printf("comp_ptr %ld decomp_ptr %ld\n", comp_ptr, decomp_ptr);
+		for (i = 0; i < 256; ++i) {
+			if (ctx->freq[i].count > 0) { // don't waste time checking ranges of values that don't exist
+				if ((window <= ctx->freq[i].range_end) && (window >= ctx->freq[i].range_start)) { // are we in this range?
+					// output i to decomp stream
+//					printf("decomp_ptr %ld outputting %02X\n", decomp_ptr, i);
+					ctx->decomp[decomp_ptr++] = i;
+					found = 1;
+					range_lo = ctx->freq[i].range_start;
+					range_hi = ctx->freq[i].range_end;
+					range_lo_hibyte = (range_lo >> 32);
+					range_hi_hibyte = (range_hi >> 32);
+					while (range_lo_hibyte == range_hi_hibyte) {
+//						printf("hibyte equivalency %02X range_lo %010lX range_hi %010lx\n", range_lo_hibyte, range_lo, range_hi);
+						// scoot our ranges over by 8 bits
+						range_lo <<= 8;
+						range_lo &= 0x000000ffffffff00;
+						range_hi <<= 8;
+						range_hi &= 0x000000ffffffff00;
+						range_hi |= 0xff;
+						// slide our window over and read next compressed byte into the low position
+						window <<= 8;
+						window &= 0x000000ffffffff00;
+						window |= ctx->comp[comp_ptr++];
+						// refresh our hibyte values for the next test at top of loop
+						range_lo_hibyte = (range_lo >> 32);
+						range_hi_hibyte = (range_hi >> 32);
+					}
+					assign_ranges(ctx, range_lo, range_hi);
+					break;
 				}
 			}
 		}
+		if (found == 0) {
+			printf("range not found! %010lX\n", window);
+			exit(EXIT_FAILURE);
+		}
+		if (decomp_ptr >= ctx->plain_len)
+			break;
 	}
+	ctx->decomp_len = decomp_ptr;
+
+	printf("process: decompressed %ld bytes into %ld -- ", ctx->comp_len, ctx->decomp_len);
+	printf("process: memcmp %d\n", memcmp(ctx->plain, ctx->decomp, ctx->plain_len));
+
+//	// dick with bit cursor stuff to test
+//	cbit_cursor_t bc;
+//	bc.byte = 0;
+//	bc.bit = 7;
+//	uint8_t bcbuff[10];
+//	memset(bcbuff, 0, 10);
+//	bc.buffer = bcbuff;
+//	cbit_write_many(&bc, 0xfed, 12);
+//	cbit_write_many(&bc, 0xab, 8);
+//	cbit_write_many(&bc, 0x7, 4);
+//	cbit_write(&bc, 1);
+//	printf("bcbuff: ");
+//	for (i = 0; i < 9; ++i)
+//		printf("%02X ", bcbuff[i]);
+//	printf("\n");
+//	uint32_t reader;
+//	bc.byte = 0;
+//	bc.bit = 7;
+//	reader = cbit_read_many(&bc, 32);
+//	printf("reader = %08X\n", reader);
 }
 
-void load_file(const char *a_path)
+size_t load_file(const char *a_path, uint8_t *a_buffer)
 {
 	int lf_fd;
 	int res;
@@ -82,14 +403,14 @@ void load_file(const char *a_path)
 		fprintf(stderr, "error: open %s: %s\n", a_path, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
-	res = read(lf_fd, work, WORKSIZE);
+	res = read(lf_fd, a_buffer, WORKSIZE);
 	if (res < 0) {
 		fprintf(stderr, "error: read %s: %s\n", a_path, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 	printf("%s: %d bytes read\n", a_path, res);
-	work_len = res;
 	close(lf_fd);
+	return res;
 }
 
 int listdir(const char *path) {
@@ -108,7 +429,7 @@ int listdir(const char *path) {
 		struct stat l_stat;
 		res = stat(entry->d_name, &l_stat);
 		if (res < 0) {
-			fprintf(stderr, "error: stat: %s\n", strerror(errno));
+			fprintf(stderr, "error: stat on %s: %s\n", entry->d_name, strerror(errno));
 			exit(EXIT_FAILURE);
 		}
 		switch (l_stat.st_mode & S_IFMT) {
@@ -124,9 +445,10 @@ int listdir(const char *path) {
 			case S_IFLNK:  printf("symlink\n");                 break;
 			case S_IFREG:
 			{
-				printf("regular file\n");
-				load_file(entry->d_name);
-				process();
+//				printf("regular file\n");
+				carith_comp_ctx l_ctx;
+				l_ctx.plain_len = load_file(entry->d_name, l_ctx.plain);
+				process(&l_ctx);
 			}
 			break;
 			case S_IFSOCK: printf("socket\n");                  break;
@@ -141,6 +463,7 @@ int listdir(const char *path) {
 int main(int argc, char **argv)
 {
 	printf("cranger build %s release %s\nbuilt on %s\n", BUILD_NUMBER, RELEASE_NUMBER, BUILD_DATE);
+	chdir("test_vectors");
 	listdir(".");
 	return 0;
 }

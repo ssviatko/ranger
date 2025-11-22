@@ -1,0 +1,803 @@
+	!to "eater.o",plain
+	!cpu 65c02
+
+	*= $8000
+
+utcnt	= 39998		;number of cycles to count between jiffy interrupts
+
+;Zero page locations
+
+; Uptime counter (1/100th second interrupt)
+ut_hrl	= $cb
+ut_hrh	= $cc
+ut_min	= $cd
+ut_sec	= $ce
+ut_jif	= $cf
+
+ptr1	= $d0
+ptr2	= $d2
+shreg	= $d4
+hexvall	= $d8
+hexvalh	= $d9
+mtptr	= $da
+bcdctr	= $dc
+
+;I/O ports
+via0_portb	= $7f00
+via0_porta	= $7f01
+via0_ddrb	= $7f02
+via0_ddra	= $7f03
+
+via1_portb	= $7f10
+via1_porta	= $7f11
+via1_ddrb	= $7f12
+via1_ddra	= $7f13
+via1_t1cl	= $7f14
+via1_t1ch	= $7f15
+via1_acr	= $7f1b
+via1_ifr	= $7f1d
+via1_ier	= $7f1e
+
+; buttons
+
+BTN_MMU		= $0f
+BTN_ESC		= $0e
+BTN_ENTER	= $0d
+BTN_DP		= $0c
+BTN_LEFT	= $0b
+BTN_UP		= $0a
+BTN_DOWN	= $09
+BTN_RIGHT	= $08
+BTN_F4		= $07
+BTN_F3		= $06
+BTN_F2		= $05
+BTN_F1		= $04
+
+LJ_CHAR		= $01	;line jump char
+
+; Rotator messages
+
+hellomsg
+	!tx "Hello, world!!  ", LJ_CHAR, "(MMU to exit)", $00
+stevemsg
+	!tx "Stephen Sviatko ", LJ_CHAR, "GoodNeighborsLLC", $00
+msgprmsg
+	!tx "Messages printed", LJ_CHAR, $00
+timesmsg
+	!tx " times.", $00
+
+; Memory test
+
+memtestmsg
+	!tx "Testing memory..", LJ_CHAR, "Mem top: $", $00
+passedmsg
+	!tx "Testing memory..", LJ_CHAR, "  -- PASSED --  ", $00
+failedmsg
+	!tx "Testing memory..", LJ_CHAR, "FAILED at $", $00
+promptmsg
+	!tx "MMU/Test Buttons", LJ_CHAR, "|ROT|UTC|TST|---", $00
+btnpressedmsg
+	!tx "You pressed: ", $00
+
+; Uptime counter
+
+utcmsg
+	!tx "System uptime:  ", $00
+
+toppage
+	!byte $7e		;current top page of memory. $3f = "6000" system, $7e = "7f" system
+
+; Beginning of ROM kernel code
+
+romstart
+	cld
+	ldx #$ff
+	txs
+	cli
+	jsr utcinit
+	jsr lcdinit
+	jsr bcdclear
+	jsr shregclear
+	lda #$0f		;turn on light test pattern
+	sta shreg + 3
+	jsr srload
+	jsr memtest
+	stz shreg + 3		;turn off test pattern
+	jsr srload
+
+; initiate button test; ask for button, report which one was pressed.
+; button F4 will start the message rotator
+; button F3 will display uptime
+; button F2 will run the memory tester
+
+mainmenu
+	jsr lcdclear		;Press a button
+	ldy #<promptmsg
+	lda #>promptmsg
+	jsr lcdcstr
+	jsr getbutton
+	stx hexvall
+
+	jsr lcdclear		;You pressed.. etc
+	ldy #<btnpressedmsg
+	lda #>btnpressedmsg
+	jsr lcdcstr
+	jsr hexout8		;display button ID#
+	ldy #$4
+	jsr delaysecs		;let the user view the btnpressedmsg for a bit
+	lda hexvall
+	cmp #BTN_F4
+	beq hello		;user selected rotator
+	cmp #BTN_F3
+	beq mainmenu1		;user selected uptime
+	cmp #BTN_F2
+	bne mainmenu		;if user selected tester, fall thru
+mainmenu0
+	jsr memtest
+	bra mainmenu
+mainmenu1
+	jsr utccout
+	ldy #$c
+	jsr delaysecs
+	bra mainmenu
+
+; print rotating messages every 5 seconds
+
+hello
+	jsr lcdclear	;Hello World
+	ldy #<hellomsg
+	lda #>hellomsg
+	jsr lcdcstr
+	lda #$08
+	sta shreg + 3
+	jsr srload
+	ldy #$8
+	jsr delaysecs
+
+	jsr lcdclear	;Steve Sviatko
+	ldy #<stevemsg
+	lda #>stevemsg
+	jsr lcdcstr
+	lda #$04
+	sta shreg + 3
+	jsr srload
+	ldy #$8
+	jsr delaysecs
+
+	jsr lcdclear	;Message has printed
+	ldy #<msgprmsg
+	lda #>msgprmsg
+	jsr lcdcstr
+	jsr bcdinc
+	jsr bcdout
+	ldy #<timesmsg	; .... times.
+	lda #>timesmsg
+	jsr lcdcstr
+	lda #$02
+	sta shreg + 3
+	jsr srload
+	ldy #$8		;allegedly 5 second delay
+	jsr delaysecs
+
+	jsr flybutton	;check for our main menu button
+	cpx #BTN_MMU
+	bne hello0
+	jmp mainmenu
+hello0
+	jsr utccout
+	lda #$01
+	sta shreg + 3
+	jsr srload
+	ldy #$c
+	jsr delaysecs
+	bra hello
+
+utccout
+	jsr lcdclear
+	ldy #<utcmsg
+	lda #>utcmsg
+	jsr lcdcstr
+	jsr lcdline2
+	lda ut_hrh
+	jsr bcdoutbyte
+	lda ut_hrl
+	jsr bcdoutbyte
+	lda #':'
+	jsr lcdcout
+	lda ut_min
+	jsr bcdoutbyte
+	lda #':'
+	jsr lcdcout
+	lda ut_sec
+	jsr bcdoutbyte
+	lda #'.'
+	jsr lcdcout
+	lda ut_jif
+	jmp bcdoutbyte
+
+;***
+;
+; BCD/Hex counter routines
+;
+; bcdclear	Reset BCD counter to 0
+; bcdinc	Increment BCD counter
+; bcdout	Output value to LCD at cursor
+; bcdoutbyte	Output BCD value of accumulator
+; hexout16	Print 16 bit value in hexvalh,hexvall
+; hexout8	Print 8 bit value in hexvall
+;
+;***
+
+bcdclear
+	stz bcdctr
+	stz bcdctr + 1
+	stz bcdctr + 2
+	rts
+bcdinc
+	pha
+	sed
+	lda bcdctr
+	clc
+	adc #$01
+	sta bcdctr
+	bcc bcdinc0
+	lda bcdctr + 1
+	adc #$00
+	sta bcdctr + 1
+	lda bcdctr + 2
+	adc #$00
+	sta bcdctr + 2
+bcdinc0
+	cld
+	pla
+	rts
+bcdout
+	pha
+	phx
+	ldx #$02
+bcdout0
+	lda bcdctr,x
+	jsr bcdoutbyte
+	dex
+	bpl bcdout0
+	plx
+	pla
+	rts
+bcdoutbyte
+	pha
+	and #$f0
+	lsr
+	lsr
+	lsr
+	lsr
+	ora #$30
+	jsr lcdcout
+	pla
+	and #$0f
+	ora #$30
+	jmp lcdcout
+hexout8
+	lda hexvall
+	and #$f0
+	lsr
+	lsr
+	lsr
+	lsr
+	jsr hexout
+	lda hexvall
+	and #$0f
+hexout
+	ora #$30
+	cmp #$3a	;less than A?
+	bcc hexout0	;yes, so just print
+	clc		;no, so add 7 to bump ASCII value
+	adc #$07	;3a becomes 41
+hexout0
+	jmp lcdcout
+hexout16
+	lda hexvall
+	pha
+	lda hexvalh
+	sta hexvall
+	jsr hexout8
+	pla
+	sta hexvall
+	jmp hexout8
+
+;***
+;
+; Misc support routines
+;
+; delay		Delay, amount in Y (255 = 1 second)
+; delaysecs	Delay for Y secs
+; memtest	Test memory from $200-end of toppage
+;
+;***
+
+memtest
+	jsr lcdclear
+	ldy #<memtestmsg
+	lda #>memtestmsg
+	jsr lcdcstr
+	lda toppage
+	sta hexvalh
+	lda #$ff
+	sta hexvall
+	jsr hexout16
+	ldy #$0a
+	jsr delaysecs	;keep this message on the screen for a little while
+
+	lda #$02
+	sta mtptr + 1
+memtest2
+	stz mtptr
+	jsr mtpage
+	bcs memfail
+	lda mtptr + 1
+	cmp toppage	;are we done?
+	beq mempass	;yes, we just tested the top page
+	inc
+	sta mtptr + 1
+	bra memtest2
+	rts
+
+memfail
+	jsr lcdclear
+	ldy #<failedmsg
+	lda #>failedmsg
+	jsr lcdcstr
+	lda mtptr
+	sta hexvall
+	lda mtptr + 1
+	sta hexvalh
+	jsr hexout16	;show the first address we failed at
+	ldy #$10
+	jsr delaysecs
+	rts
+
+mempass
+	jsr lcdclear
+	ldy #<passedmsg
+	lda #>passedmsg
+	jsr lcdcstr
+	ldy #$10
+	jsr delaysecs
+	rts
+
+mtpage			;Test memory page at mtptr
+	pha
+	phy
+	ldy #$00
+mtpage0
+	lda #$ff
+	sta (mtptr),y
+	lda (mtptr),y
+	cmp #$ff
+	bne mterror
+	lda #$aa
+	sta (mtptr),y
+	lda (mtptr),y
+	cmp #$aa
+	bne mterror
+	lda #$55
+	sta (mtptr),y
+	lda (mtptr),y
+	cmp #$55
+	bne mterror
+	lda #$00
+	sta (mtptr),y
+	lda (mtptr),y
+	bne mterror
+	iny
+	bne mtpage0
+	ply
+	pla
+	clc
+	rts
+mterror
+	sty mtptr	;store failure point at low byte of mtptr
+	ply
+	pla
+	sec
+	rts
+
+delay
+	phx
+delay1
+	ldx #$ff
+delay0
+	nop	;waste 16 clock cycles
+	nop
+	nop
+	nop
+	nop
+	dex
+	bne delay0
+	dey
+	bne delay1
+	plx
+	rts
+
+delaysecs
+	phy
+	ldy #$ff
+	jsr delay
+	ply
+	dey
+	bne delaysecs
+	rts
+;***
+;
+; Shift Register support routines
+;
+; via0_porta pin assignments:
+; 0 - serial out (SI)
+; 1 - sr clock (SCK)
+; 2 - storage clock (RCK)
+; 3 - sr clear (SCLRB)
+; 4 - button in
+;
+; Entry points:
+;
+; srload	Load 4 bytes at shreg
+; srclear	Clear shift register (does not clear shreg buffer)
+; srlatch	Latch in contents of shift register to output
+; shregclear	Clear shreg
+; getbutton	Get button press, return button ID in X (blocking)
+; flybutton	Get button press, return button ID in X or $FF if no button down (nonblocking)
+;
+; Proposed Shift Register Map
+;
+; Buttons 1F-04 (shreg - shreg+3)
+; Indicators 3-0 (low 4 bits of shreg+3)
+;
+; Buttons:
+; 1F-10 - F through 0 hex keys
+;
+; 0F - Q (Quit/Main menu)
+; 0E - ESC (cancel/clear/Previous menu)
+; 0D - ENT (Enter/=)
+; 0C - . (Decimal point)
+; 0B - ARROW <- (Left/previous/-)
+; 0A - ARROW ^ (Up/*)
+; 09 - ARROW (Down/divide)
+; 08 - ARROW -> (Right/next/+)
+; 07 - F4
+; 06 - F3
+; 05 - F2 (no)
+; 04 - F1 (yes)
+; 03 - Indicator 3
+; 02 - Indicator 2
+; 01 - Indicator 1
+; 00 - Indicator 0
+;
+;***
+
+flybutton
+	pha
+	phy
+	lda #$ff
+	sta shreg
+	sta shreg + 1
+	sta shreg + 2
+	and #$f0
+	ora shreg + 3
+	sta shreg + 3
+	jsr srload
+	lda via0_porta
+	and #%00010000
+	beq getbutton1		;well well... a button happened to be down. fall through into getbutton for processing
+	ldx #$ff		;no buttons down, so return a -1
+	ply
+	pla
+	rts
+
+getbutton
+	pha
+	phy
+	lda #$ff		;all buttons lit up for test
+	sta shreg
+	sta shreg + 1
+	sta shreg + 2
+	and #$f0
+	ora shreg + 3
+	sta shreg + 3
+	jsr srload
+gbwaitdown
+	lda via0_porta
+	and #%00010000		;read bit 5 (key down = low)
+	bne gbwaitdown		;bit is set, so no key pressed yet
+	ldy #$10		;delay for a little bit
+	jsr delay		;to make sure key is still down
+	lda via0_porta
+	and #%00010000
+	bne gbwaitdown		;button released? or bounce? so go back
+getbutton1
+	lda #$80		;button is still down, so its go-time
+	ldx #$1f		;start with button #1f (furthest left)
+	sta shreg		;set up shift register for test
+	stz shreg + 1
+	stz shreg + 2
+	lda shreg + 3
+	and #$0f		;preserve the contents of the indicator lamps
+	sta shreg + 3
+gbchknext
+	jsr srload
+	lda via0_porta		;check if button lit up yet
+	and #%00010000
+	beq gotbutton		;got it!
+	dex			;didn't get it, so --X and check the next bit
+	cpx #$03		;did we reach the indicator bank?
+	beq gotbutton		;yes, out of buttons.. x is $03.. something went wrong
+	clc
+	ror shreg		;ror shreg into next bit to test
+	ror shreg + 1
+	ror shreg + 2
+	lda shreg + 3
+	and #$f0
+	ror			;rotate bit into empty accumulator
+	ora shreg + 3		; add extant indicator bits
+	sta shreg + 3
+	bra gbchknext		; ... and recycle
+gotbutton
+	stz shreg		;turn off buttons
+	stz shreg + 1
+	stz shreg + 2
+	lda shreg + 3
+	and #$0f
+	sta shreg + 3
+	jsr srload
+	ply
+	pla
+	rts			;lit-up button # should be in X
+
+shregclear
+	phx
+	ldx #$03
+shregclear0
+	stz shreg,x
+	dex
+	bpl shregclear0
+	plx
+	rts
+srclear
+	lda #%00001000		;pulse clear pin
+	sta via0_porta
+	nop
+	nop
+	stz via0_porta
+srlatch
+	lda #%00000100		;pulse RCK
+	sta via0_porta
+	nop
+	nop
+	stz via0_porta
+	rts
+srloadbit
+	pha			;save accumulator
+	rol			;write contents of carry to head of sr chain
+	and #%00000001		;  (put carry into bit 0 of A)
+	sta via0_porta		;prime the output with the bit
+	nop
+	nop
+	ora #%00000010		;set SCK bit
+	sta via0_porta		;pulse the serial clock
+	nop
+	nop
+	and #%00000001
+	sta via0_porta
+	pla
+	rts
+srloadbyte
+	phx
+	ldx #$08		;count 8 bits
+srloadbyte0
+	clc			;load byte in A into the SR
+	ror			;one bit at a time via the carry
+	jsr srloadbit
+	dex
+	bne srloadbyte0
+	plx
+	rts
+srload
+	pha
+	phx
+	ldx #$03		;load 32-bit shift register with contents of 4 bytes at shreg
+srload0
+	lda shreg,x
+	jsr srloadbyte
+	dex
+	bpl srload0
+	plx
+	pla
+	jmp srlatch		;exit through routine to display what we shifted
+
+;***
+;
+; LCD support routines
+;
+; Entry points:
+;
+; lcdinit	Initialize the LCD panel
+; lcdclear	Clear the LCD panel
+; lcdcout	Send one character to LCD panel
+; lcdline2	Print 28 spaces
+; lcdcstr	Print null termed msg pointed to by Y<, A>
+; lcdhome	Return cursor home (does not clear)
+; lcdbacksp	Backspace the LCD panel cursor
+;
+;***
+
+lcdcstr
+	sty ptr1
+	sta ptr1 + 1
+	ldy #$00
+lcdcstr0
+	lda (ptr1),y
+	beq lcdcstr1
+	cmp #LJ_CHAR	;line jump?
+	beq lcdcstr2
+	jsr lcdcout
+	iny
+	bra lcdcstr0
+lcdcstr1
+	rts
+lcdcstr2		;line jump character found
+	jsr lcdline2
+	iny
+	bra lcdcstr0
+
+lcdline2
+	pha
+	phx
+	ldx #$18
+	lda #$20
+lcdline20
+	jsr lcdcout
+	dex
+	bne lcdline20
+	plx
+	pla
+	rts
+
+lcdbusywait
+	pha
+	lda #$0		;port b is temporarily an input
+	sta via0_ddrb
+lcdbusy1
+	lda #%01000000	;set RW flag
+	sta via0_porta
+	nop
+	nop
+	lda #%11000000	;RW | E flag
+	sta via0_porta
+	nop
+	nop
+	lda via0_portb
+	and #$80	;check busy flag (bit 7)
+	bne lcdbusy1
+
+	lda #%01000000	;RW flag only
+	sta via0_porta
+	lda #$ff	;port b back to being output
+	sta via0_ddrb
+	pla
+	rts
+lcdhome
+	lda #%00000010	;return cursor home; display contents unchanged
+	bra lcdinst
+lcdbacksp
+	lda #%00010000	;cursor/display shift: do not shift display, move cursor to the left
+	bra lcdinst
+lcdinit
+	lda #$ff	;all bits in port b are output
+	sta via0_ddrb
+	lda #$ef	;bits 5-7 are output for lcd; bits 0-3 outs for sr, bit 4 is button input for sr
+	sta via0_ddra
+	lda #%00111000	;set 8 bit mode, 2 line display, 5x8 font
+	jsr lcdinst
+	lda #%00001100	;display on, cursor off, blink off
+	jsr lcdinst
+	lda #%00000110	;increment and shift cursor, don't shift display
+	jsr lcdinst
+lcdclear		;fall thru
+	lda #%00000001	;clear display + another fall thru
+lcdinst			;instruction in A to send to LCD
+	jsr lcdbusywait
+	sta via0_portb
+	lda #$0		;clear rs, rw, and e bits
+	sta via0_porta
+	nop
+	nop
+	lda #$80	;set e bit
+	sta via0_porta
+	nop
+	nop
+	lda #$0
+	sta via0_porta
+	rts
+
+lcdcout			;print one character to the LCD
+	jsr lcdbusywait
+	sta via0_portb
+			;fall thru
+lcddatsnd		;toggle the enable bit on porta while register select is set
+	lda #%00100000	;set rs bit
+	sta via0_porta
+	nop
+	nop
+	lda #%10100000	;set e bit and rs bit
+	sta via0_porta
+	nop
+	nop
+	lda #%00100000	;set only rs bit
+	sta via0_porta
+	rts
+
+utcinit
+	sei
+	stz ut_hrl
+	stz ut_hrh
+	stz ut_min
+	stz ut_sec
+	stz ut_jif
+	lda #%11000000	;enable T1 interrupts
+	sta via1_ier
+	lda #%01000000	;T1 continuous, PB7 disabled
+	sta via1_acr
+	cli
+	lda #<utcnt
+	sta via1_t1cl
+	lda #>utcnt
+	sta via1_t1ch
+	rts
+
+irqhndl
+	sei			;prevent subsequent interrupts from disturbing us
+	pha
+	bit via1_ifr		;T1 timer interrupt on via1?
+	bvs irqt1		;yes, bit 6 set
+irqexit
+	pla
+	cli
+	rti
+irqt1				;Handle via1 T1 "jiffy" interrupt
+	bit via1_t1cl		;clear interrupt
+	sed
+	lda ut_jif
+	clc
+	adc #$01
+	sta ut_jif
+	lda ut_sec
+	adc #$00
+	sta ut_sec
+	cmp #$60		;seconds rolled over to 60?
+	bne irqt1exit
+	stz ut_sec		;reset seconds, increment minutes
+	lda ut_min
+	clc
+	adc #$01
+	sta ut_min
+	cmp #$60		;minutes rolled over to 60?
+	bne irqt1exit
+	stz ut_min
+	lda ut_hrl		;increment hours
+	clc
+	adc #$01
+	sta ut_hrl
+	lda ut_hrh
+	adc #$00
+	sta ut_hrh
+irqt1exit
+	cld
+	bra irqexit
+
+nmihndl
+	rti
+
+	!align $ffff,$fffa,$00
+
+nmi	!word nmihndl
+reset	!word romstart
+irq	!word irqhndl
+ 

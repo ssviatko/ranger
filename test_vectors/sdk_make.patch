@@ -1,0 +1,155 @@
+--- sdk/examples/C/ClientServer/makefile_orig	2007-06-07 20:38:49.401100156 -0700
++++ sdk/examples/C/ClientServer/makefile	2007-06-07 20:08:57.189454780 -0700
+@@ -24,9 +24,9 @@
+ 
+ #HPUX: CC=/usr/local/local/bin/gcc -Wl,+s -Wl,+b,/usr/local/local/lib 
+ #HPUX: CC=/usr/local/local/bin/gcc 
+-KRBHOME=/krb5/MIT
++KRBHOME=../../../../krb5-1.5/src
+ HPUX: CC=gcc 
+-KRBHOME=/krb5/MIT
++KRBHOME=../../../../krb5-1.5/src
+ CFLAGS =-I${MSCINCDIRS} -I${KRBHOME}/include 
+ LIBDIR =-L${MSCLIBDIR} -L${KRBHOME}/lib
+ #HPUX: LIBS=-lMsgSecure_client -lcom_err -lgssapi_krb5 -lk5crypto -lkrb4 -lkrb5 -lkrb5support -lgssrpc -lMITKrb5
+--- sdk/examples/C/dependencies/make.rules_orig	2007-06-07 20:39:15.046751968 -0700
++++ sdk/examples/C/dependencies/make.rules	2007-06-07 19:52:43.884083060 -0700
+@@ -6,8 +6,8 @@
+ MSCINCPATH=.
+ GSSLIBPATH=/krb5/lib
+ GSSINCPATH=/krb5/appsec-sdk/include
+-MITGSSLIB=/krb5/MIT/lib
+-MITGSSINCPATH=/krb5/MIT/include
++MITGSSLIB=../../../../krb5-1.5/src/lib
++MITGSSINCPATH=../../../../krb5-1.5/src/include
+ 
+ ############
+ # Comment these variables out when no memory traces should be done
+--- sdk/src/server/makefile_orig	2007-03-19 13:20:23.000000000 -0800
++++ sdk/src/server/makefile	2007-06-14 15:26:47.000000000 -0700
+@@ -5,17 +5,17 @@
+ 
+ MYCFLAGS = -I../shared -DMSGSECURE_SERVER # -D__debug
+ 
+-AIX52_TARGET=../../lib/libMSecII_server.a
+-AIX53_TARGET=../../lib/libMSecII_server.a
+-HPUX1123_TARGET=../../lib/libMSecII_server.so
+-LINUX_TARGET=../../lib/libMSecII_server.so
+-SOLARIS8_TARGET=../../lib/libMSecII_server.so
+-SOLARIS10_TARGET=../../lib/libMSecII_server.so
++AIX52_TARGET=../../lib/libMsgSecure_server.a
++AIX53_TARGET=../../lib/libMsgSecure_server.a
++HPUX1123_TARGET=../../lib/libMsgSecure_server.so
++LINUX_TARGET=../../lib/libMsgSecure_server.so
++SOLARIS8_TARGET=../../lib/libMsgSecure_server.so
++SOLARIS10_TARGET=../../lib/libMsgSecure_server.so
+ 
+ SOLARIS_TARGET=../../lib/libMsgSecure_server.so
+ HPUX_TARGET=../../lib/libMsgSecure_server.sl
+ HPUX_TARGET2=../../lib/hp_single_thread/libMsgSecure_server.a
+-MSECII_TARGET=../../lib/libMSecII_server.so
++MSECII_TARGET=../../lib/libMsgSecure_server.so
+ 
+ 
+ include ../make.rules
+@@ -49,7 +49,7 @@
+ # Betterjust to name the static and dynamic libraries differently.
+ STATIC_LIB: MsgSecure_server.o MsgSecure_jni.o SHARED
+ 	echo 'Building static MsgSecure Server library'
+-	ar rcs ../../lib/libMSecII_server_static.a MsgSecure_server.o ../shared/MsgSecure.o
++	ar rcs ../../lib/libMsgSecure_server_static.a MsgSecure_server.o ../shared/MsgSecure.o
+ 
+ MsgSecure_server.o: MsgSecure_server.c
+ 	$(CC) -DSERVER -DFOREGO_PTHREADS $(CFLAGS)  -c $<
+--- sdk/src/make.rules_orig	2007-06-14 14:01:37.000000000 -0700
++++ sdk/src/make.rules	2007-06-14 15:58:08.000000000 -0700
+@@ -25,8 +25,8 @@
+ GSSLIBPATH=/krb5/src/lib
+ GSSINCPATH=/krb5/appsec-sdk/include
+ # real lib
+-MITGSSLIBPATH=../../../../WFBkrb5/BUILD/krb5-1.5/src/lib
+-MITGSSINCPATH=../../../../WFBkrb5/BUILD/krb5-1.5/src/include
++MITGSSLIBPATH=../../../krb5-1.5/src/lib
++MITGSSINCPATH=../../../krb5-1.5/src/include
+ HPUX: MITGSSLIBPATH=../../MITlib
+ HPUX: MITGSSINCPATH=../../MITinc
+ # test lib
+@@ -43,7 +43,7 @@
+ AIX52_JAVA_HOME=/usr/java14
+ AIX53_JAVA_HOME=/usr/java14
+ HPUX1123_JAVA_HOME=/opt/java1.4
+-LINUX_JAVA_HOME=/opt/java1.4
++LINUX_JAVA_HOME=/usr/java/jdk1.5.0_08
+ SOLARIS8_JAVA_HOME=/usr/java
+ SOLARIS10_JAVA_HOME=/usr/java
+ 
+@@ -77,9 +77,9 @@
+ #
+ 
+ #LD = ld  -shared
+-#LD=gcc -fPIC -shared -Wl,+h,libMSecII_client # -Wl,-c,hpux10.exports  
++#LD=gcc -fPIC -shared -Wl,+h,libMsgSecure_client # -Wl,-c,hpux10.exports  
+ LD=ld -b 
+-#LD=gcc -fPIC -static # -Wl,+h,libMSecII_client # -Wl,-c,hpux10.exports  
++#LD=gcc -fPIC -static # -Wl,+h,libMsgSecure_client # -Wl,-c,hpux10.exports  
+ 
+ AIX52: LD = ${CC} -shared 
+ AIX53: LD = ${CC} -shared 
+--- sdk/src/client/makefile_orig	2007-06-14 14:01:37.000000000 -0700
++++ sdk/src/client/makefile	2007-08-02 17:20:38.000000000 -0700
+@@ -5,18 +5,18 @@
+ 
+ MYCFLAGS = -DMSGSECURE_CLIENT # -I../shared -DMSGSECURE_CLIENT # -D__debug
+ 
+-AIX52_TARGET=../../lib/libMSecII_client.a
+-AIX53_TARGET=../../lib/libMSecII_client.a
+-HPUX1123_TARGET=../../lib/libMSecII_client.so
+-LINUX_TARGET=../../lib/libMSecII_client.so
+-SOLARIS8_TARGET=../../lib/libMSecII_client.so
+-SOLARIS10_TARGET=../../lib/libMSecII_client.so
++AIX52_TARGET=../../lib/libMsgSecure_client.a
++AIX53_TARGET=../../lib/libMsgSecure_client.a
++HPUX1123_TARGET=../../lib/libMsgSecure_client.so
++LINUX_TARGET=../../lib/libMsgSecure_client.so
++SOLARIS8_TARGET=../../lib/libMsgSecure_client.so
++SOLARIS10_TARGET=../../lib/libMsgSecure_client.so
+ 
+ SOLARIS_TARGET=../../lib/libMsgSecure_client.so
+ HPUX_TARGET=../../lib/libMsgSecure_client.sl
+ HPUX_TARGET2=../../lib/hp_single_thread/libMSC.a
+-# LINUX_TARGET=../../lib/libMSecII_client.so    # for linux the linux is MSecII
+-MSECII_TARGET=../../lib/libMSecII_client.sl   # only used for unix not for linux
++# LINUX_TARGET=../../lib/libMsgSecure_client.so    # for linux the linux is MSecII
++MSECII_TARGET=../../lib/libMsgSecure_client.sl   # only used for unix not for linux
+ 
+ include ../make.rules
+ 
+@@ -24,7 +24,7 @@
+ AIX52 : CLIENT_LIB
+ AIX53 : CLIENT_LIB
+ HPUX1123 : CLIENT_LIB
+-LINUX : CLIENT_LIB
++LINUX : CLIENT_LIB CLIENT_LIB_STATIC
+ SOLARIS8 : CLIENT_LIB
+ SOLARIS10 : CLIENT_LIB
+ 
+@@ -36,14 +36,14 @@
+ 
+ 
+ CLIENT_LIB: MsgSecure_jni.o MsgSecure_client.o  SHARED
++	echo
++	echo "  Building shared MsgSecure Client library $(TARGET)."
+ 	$(LD) MsgSecure_client.o ../shared/MsgSecure.o ../shared/asc_ebc.o MsgSecure_jni.o $(LIBS) -o $(TARGET)
+ 
+ CLIENT_LIB_STATIC: MsgSecure_client.o MsgSecure_jni.o SHARED
+-	echo "\nBuilding static MsgSecure Client library $(TARGET)." 
+-	rm $(TARGET:.sl=.a);pwd
+-	ar -r $(TARGET:.sl=.a) MsgSecure_client.o ../shared/*.o 
+-	ls  -l $(TARGET:.sl=.a) 
+-	echo $(TARGET)
++	echo
++	echo "  Building static MsgSecure Client library."
++	ar rcs ../../lib/libMsgSecure_client.a MsgSecure_client.o ../shared/MsgSecure.o
+ 
+ MsgSecure_client.o: MsgSecure_client.c
+ 	$(CC) $(CFLAGS) -c $<
