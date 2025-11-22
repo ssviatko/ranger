@@ -10,7 +10,7 @@ CC = gcc
 CPP = g++
 LD = g++
 LDFLAGS = 
-TARGET = cranger
+TARGET = carith
 OBJS = main.o
 
 all: $(TARGET)
