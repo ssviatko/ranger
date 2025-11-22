@@ -11,7 +11,7 @@
 
 #pragma pack(1)
 
-#define WORKSIZE 65536 ///< Maximum size of compression segment
+#define WORKSIZE 131072 ///< Maximum size of compression segment
 #define RANGEMAX 0x10000000000 ///< 2^40, maximum size of range
 
 typedef struct {
@@ -150,12 +150,15 @@ void assign_ranges(carith_comp_ctx *ctx, uint64_t a_start, uint64_t a_end)
 	uint64_t l_countbase = 0;
 	uint64_t l_rangebase = 0;
 
+//	if (l_rangesize < 1024) {
+//		printf("tiny range %ld !!!!!\n", l_rangesize);
+//	}
 	for (i = 0; i < 256; ++i) {
 		if (ctx->freq[i].count > 0) {
 			ctx->freq[i].range_start = a_start + l_rangebase;
 			l_countbase += ctx->freq[i].count;
 			l_rangebase = (l_countbase * l_rangesize) / ctx->plain_len;
-			ctx->freq[i].range_end = a_start + l_rangebase - 1;
+			ctx->freq[i].range_end = a_start + l_rangebase - 2;
 		}
 	}
 //	printf("assign_ranges: lo %010lX hi %010lX\n", a_start, a_end);
@@ -473,7 +476,7 @@ int main(int argc, char **argv)
 	gettimeofday(&g_start_time, NULL);
 
 	printf("cranger build %s release %s\nbuilt on %s\n", BUILD_NUMBER, RELEASE_NUMBER, BUILD_DATE);
-	chdir("test_vectors");
+	chdir(argv[1]);
 	listdir(".");
 	gettimeofday(&g_end_time, NULL);
 
