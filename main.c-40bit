@@ -12,7 +12,7 @@
 #pragma pack(1)
 
 #define DUMPERROR 0
-#define WORKSIZE 65536 ///< Maximum size of compression segment
+#define WORKSIZE 79527 ///< Maximum size of compression segment
 #define RANGEMAX 0x10000000000 ///< 2^40, maximum size of range
 
 typedef struct {
@@ -162,7 +162,7 @@ void assign_ranges(carith_comp_ctx *ctx, uint64_t a_start, uint64_t a_end)
 			ctx->freq[i].range_end = a_start + l_rangebase - 1;
 		}
 	}
-	printf("assign_ranges: lo %010lX hi %010lX size %ld\n", a_start, a_end, a_end - a_start);
+//	printf("assign_ranges: lo %010lX hi %010lX size %ld\n", a_start, a_end, a_end - a_start);
 	//	for (j = 0; j < 32; ++j) {
 	//		for (i = 0; i < 8; ++i) {
 	//			size_t k = (j * 8) + i;
@@ -201,11 +201,11 @@ void process(carith_comp_ctx *ctx)
 		cur_byte = ctx->plain[plain_ptr];
 		range_lo = ctx->freq[cur_byte].range_start;
 		range_hi = ctx->freq[cur_byte].range_end;
-		printf("pos %ld read %02X new range_lo %010lX range_hi %010lX\n", plain_ptr, cur_byte, range_lo, range_hi);
+//		printf("pos %ld read %02X new range_lo %010lX range_hi %010lX\n", plain_ptr, cur_byte, range_lo, range_hi);
 		range_lo_hibyte = (range_lo >> 32);
 		range_hi_hibyte = (range_hi >> 32);
 		while (range_lo_hibyte == range_hi_hibyte) {
-			printf("outputing pos %ld byte %02X\n", comp_ptr, range_lo_hibyte);
+//			printf("outputing pos %ld byte %02X\n", comp_ptr, range_lo_hibyte);
 			ctx->comp[comp_ptr++] = range_lo_hibyte;
 			range_lo <<= 8;
 			range_lo &= 0x000000ffffffff00ULL;

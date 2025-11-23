@@ -13,7 +13,7 @@
 #pragma pack(1)
 
 #define DUMPERROR 0
-#define WORKSIZE 131072 ///< Maximum size of compression segment
+#define WORKSIZE 79527 ///< Maximum size of compression segment (48k * golden ratio)
 
 typedef struct {
 	uint64_t count; ///< Number of times this symbol occurs in plaintext
@@ -150,17 +150,15 @@ void assign_ranges(carith_comp_ctx *ctx, uint64_t a_start, uint64_t a_end)
 	uint64_t l_rangesize = a_end - a_start;
 	uint64_t l_countbase = 0;
 	uint64_t l_rangebase = 0;
-	__uint128_t l_biggie;
 
-	if (l_rangesize < UINT_MAX) {
+	if (l_rangesize < 16777216) {
 		printf("tiny range %ld !!!!! %016lx %016lx\n", l_rangesize, a_start, a_end);
 	}
 	for (i = 0; i < 256; ++i) {
 		if (ctx->freq[i].count > 0) {
 			ctx->freq[i].range_start = a_start + l_rangebase;
 			l_countbase += ctx->freq[i].count;
-			l_biggie = ((__uint128_t)l_countbase * (__uint128_t)l_rangesize) / (__uint128_t)ctx->plain_len;
-			l_rangebase = l_biggie;
+			l_rangebase = ((__uint128_t)l_countbase * (__uint128_t)l_rangesize) / (__uint128_t)ctx->plain_len;
 			ctx->freq[i].range_end = a_start + l_rangebase - 1;
 		}
 	}
