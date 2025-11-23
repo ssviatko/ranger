@@ -8,12 +8,12 @@
 #include <sys/fcntl.h>
 #include <unistd.h>
 #include <sys/time.h>
-#include <limits.h>
 
 #pragma pack(1)
 
 #define DUMPERROR 0
-#define WORKSIZE 131072 ///< Maximum size of compression segment
+#define WORKSIZE 65536 ///< Maximum size of compression segment
+#define RANGEMAX 0x10000000000 ///< 2^40, maximum size of range
 
 typedef struct {
 	uint64_t count; ///< Number of times this symbol occurs in plaintext
@@ -150,21 +150,19 @@ void assign_ranges(carith_comp_ctx *ctx, uint64_t a_start, uint64_t a_end)
 	uint64_t l_rangesize = a_end - a_start;
 	uint64_t l_countbase = 0;
 	uint64_t l_rangebase = 0;
-	__uint128_t l_biggie;
 
-	if (l_rangesize < UINT_MAX) {
-		printf("tiny range %ld !!!!! %016lx %016lx\n", l_rangesize, a_start, a_end);
+	if (l_rangesize < 1024) {
+		printf("tiny range %ld !!!!! %010lx %010lx\n", l_rangesize, a_start, a_end);
 	}
 	for (i = 0; i < 256; ++i) {
 		if (ctx->freq[i].count > 0) {
 			ctx->freq[i].range_start = a_start + l_rangebase;
 			l_countbase += ctx->freq[i].count;
-			l_biggie = ((__uint128_t)l_countbase * (__uint128_t)l_rangesize) / (__uint128_t)ctx->plain_len;
-			l_rangebase = l_biggie;
+			l_rangebase = (l_countbase * l_rangesize) / ctx->plain_len;
 			ctx->freq[i].range_end = a_start + l_rangebase - 1;
 		}
 	}
-//	printf("assign_ranges: lo %016lX hi %016lX size %ld\n", a_start, a_end, a_end - a_start);
+	printf("assign_ranges: lo %010lX hi %010lX size %ld\n", a_start, a_end, a_end - a_start);
 	//	for (j = 0; j < 32; ++j) {
 	//		for (i = 0; i < 8; ++i) {
 	//			size_t k = (j * 8) + i;
@@ -196,29 +194,31 @@ void process(carith_comp_ctx *ctx)
 
 	freq_count(ctx);
 	range_lo = 0;
-	range_hi = ULLONG_MAX;
+	range_hi = RANGEMAX;
 	assign_ranges(ctx, range_lo, range_hi);
 
 	for (plain_ptr = 0; plain_ptr < ctx->plain_len; ++plain_ptr) {
 		cur_byte = ctx->plain[plain_ptr];
 		range_lo = ctx->freq[cur_byte].range_start;
 		range_hi = ctx->freq[cur_byte].range_end;
-//		printf("pos %ld read %02X new range_lo %010lX range_hi %010lX\n", plain_ptr, cur_byte, range_lo, range_hi);
-		range_lo_hibyte = (range_lo >> 56);
-		range_hi_hibyte = (range_hi >> 56);
+		printf("pos %ld read %02X new range_lo %010lX range_hi %010lX\n", plain_ptr, cur_byte, range_lo, range_hi);
+		range_lo_hibyte = (range_lo >> 32);
+		range_hi_hibyte = (range_hi >> 32);
 		while (range_lo_hibyte == range_hi_hibyte) {
-//			printf("outputing pos %ld byte %02X\n", comp_ptr, range_lo_hibyte);
+			printf("outputing pos %ld byte %02X\n", comp_ptr, range_lo_hibyte);
 			ctx->comp[comp_ptr++] = range_lo_hibyte;
 			range_lo <<= 8;
+			range_lo &= 0x000000ffffffff00ULL;
 			range_hi <<= 8;
+			range_hi &= 0x000000ffffffff00ULL;
 			range_hi |= 0xff;
-			range_lo_hibyte = (range_lo >> 56);
-			range_hi_hibyte = (range_hi >> 56);
+			range_lo_hibyte = (range_lo >> 32);
+			range_hi_hibyte = (range_hi >> 32);
 		}
 		assign_ranges(ctx, range_lo, range_hi);
 	}
-	for (i = 0; i < 8; ++i) {
-		range_lo_hibyte = (range_lo >> 56) & 0xff;
+	for (i = 0; i < 5; ++i) {
+		range_lo_hibyte = (range_lo >> 32) & 0xff;
 //		printf("comp pos %ld outputting final 5-byte word %02X\n", comp_ptr, range_lo_hibyte);
 		ctx->comp[comp_ptr++] = range_lo_hibyte;
 		range_lo <<= 8;
@@ -321,13 +321,13 @@ void process(carith_comp_ctx *ctx)
 
 	// change decomp to plain once this is debugged and tested
 	range_lo = 0;
-	range_hi = ULLONG_MAX;
+	range_hi = RANGEMAX;
 	assign_ranges(ctx, range_lo, range_hi);
 	comp_ptr = 0;
 	decomp_ptr = 0;
 	// prime the pump
 	window = 0;
-	for (i = 0; i < 8; ++i) {
+	for (i = 0; i < 5; ++i) {
 		window <<= 8;
 		window |= ctx->comp[comp_ptr++];
 	}
@@ -344,20 +344,23 @@ void process(carith_comp_ctx *ctx)
 //					found = 1;
 					range_lo = ctx->freq[i].range_start;
 					range_hi = ctx->freq[i].range_end;
-					range_lo_hibyte = (range_lo >> 56);
-					range_hi_hibyte = (range_hi >> 56);
+					range_lo_hibyte = (range_lo >> 32);
+					range_hi_hibyte = (range_hi >> 32);
 					while (range_lo_hibyte == range_hi_hibyte) {
 //						printf("hibyte equivalency %02X range_lo %010lX range_hi %010lx\n", range_lo_hibyte, range_lo, range_hi);
 						// scoot our ranges over by 8 bits
 						range_lo <<= 8;
+						range_lo &= 0x000000ffffffff00ULL;
 						range_hi <<= 8;
+						range_hi &= 0x000000ffffffff00ULL;
 						range_hi |= 0xff;
 						// slide our window over and read next compressed byte into the low position
 						window <<= 8;
+						window &= 0x000000ffffffff00ULL;
 						window |= ctx->comp[comp_ptr++];
 						// refresh our hibyte values for the next test at top of loop
-						range_lo_hibyte = (range_lo >> 56);
-						range_hi_hibyte = (range_hi >> 56);
+						range_lo_hibyte = (range_lo >> 32);
+						range_hi_hibyte = (range_hi >> 32);
 					}
 					assign_ranges(ctx, range_lo, range_hi);
 					break;
