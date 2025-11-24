@@ -228,8 +228,8 @@ int main(int argc, char **argv)
 				color_printf("*a  -? (--help)*d this screen\n");
 				color_printf("*a     (--debug)*d enable debug mode\n");
 				color_printf("*a     (--nocolor)*d defeat colors\n");
-				color_printf("*a     (--threads) <count>*d specify number of theads to use\n");
-				color_printf("*a  -g (--segsize) <bytes>*d specify size of segments (default %d)\n", DEFAULT_SEGSIZE);
+				color_printf("*a     (--threads) <count>*d specify number of theads to use (default *h%d*d)\n", g_threads);
+				color_printf("*a  -g (--segsize) <bytes>*d specify size of segments (default *h%d*d)\n", DEFAULT_SEGSIZE);
 				color_printf("*a  -v (--verbose)*d enable verbose mode\n");
 				color_printf("*hoperational modes*a (choose only one)*d\n");
 				color_printf("*a  -c (--compress) <file>*d compress a file\n");
