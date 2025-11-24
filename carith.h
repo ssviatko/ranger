@@ -44,6 +44,8 @@ extern "C" {
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "cbit.h"
 
@@ -77,6 +79,7 @@ typedef enum {
 
 const char    *carith_strerror          (carith_error_t a_errno);
 carith_error_t carith_init_ctx          (carith_comp_ctx *ctx, size_t a_worksize);
+carith_error_t carith_free_ctx          (carith_comp_ctx *ctx);
 
 #ifdef __cplusplus
 }

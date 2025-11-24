@@ -62,8 +62,39 @@ const char *carith_strerror(carith_error_t a_errno)
  * @param[in] a_worksize Size in bytes of requested compression segment
  */
 
-carith_error_t carith_init_ctx          (carith_comp_ctx *ctx, size_t a_worksize)
+carith_error_t carith_init_ctx(carith_comp_ctx *ctx, size_t a_worksize)
 {
+    ctx->plain = NULL;
+    ctx->plain = malloc(a_worksize);
+    if (ctx->plain == NULL) {
+        free(ctx);
+        return CARITH_ERR_MEMORY;
+    }
+    ctx->comp = NULL;
+    ctx->comp = malloc(a_worksize * 3 / 2); // comp guard size 150%
+    if (ctx->comp == NULL) {
+        free(ctx->plain);
+        return CARITH_ERR_MEMORY;
+    }
+    ctx->decomp = NULL;
+    ctx->decomp = malloc(a_worksize);
+    if (ctx->decomp == NULL) {
+        free(ctx->plain);
+        free(ctx->comp);
+        return CARITH_ERR_MEMORY;
+    }
     return CARITH_ERR_NONE;
 }
 
+/**
+ * @brief Free a carith context
+ * Release all allocated memory.
+ */
+
+carith_error_t carith_free_ctx(carith_comp_ctx *ctx)
+{
+    free(ctx->plain);
+    free(ctx->comp);
+    free(ctx->decomp);
+    return CARITH_ERR_NONE;
+}
