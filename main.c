@@ -16,6 +16,8 @@
 struct timeval g_start_time, g_end_time;
 int g_debug = 0;
 int g_verbose = 0;
+int g_norle = 0;
+int g_rleonly = 0;
 uint32_t g_segsize = DEFAULT_SEGSIZE;
 enum { MODE_NONE, MODE_COMPRESS, MODE_EXTRACT, MODE_TELL } g_mode = MODE_NONE;
 
@@ -38,6 +40,8 @@ thread_work_area twa[MAXTHREADS];
 enum {
 	OPT_DEBUG = 1001,
 	OPT_THREADS,
+	OPT_NORLE,
+	OPT_RLEONLY,
 	OPT_NOCOLOR
 };
 
@@ -51,6 +55,8 @@ struct option g_options[] = {
 	{ "threads", required_argument, NULL, OPT_THREADS },
 	{ "segsize", required_argument, NULL, 'g' },
 	{ "nocolor", no_argument, NULL, OPT_NOCOLOR },
+	{ "norle", no_argument, NULL, OPT_NORLE },
+	{ "rleonly", no_argument, NULL, OPT_RLEONLY },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -219,18 +225,30 @@ int main(int argc, char **argv)
 				g_mode = MODE_TELL;
 			}
 			break;
+			case OPT_NORLE:
+			{
+				g_norle = 1;
+			}
+			break;
+			case OPT_RLEONLY:
+			{
+				g_rleonly = 1;
+			}
+			break;
 			case '?':
 			{
 				color_printf("*hcarith (C arithmetic coder) compression utility*d\n");
 				color_printf("build *h%s*d release *h%s*d built on *h%s*d\n", BUILD_NUMBER, RELEASE_NUMBER, BUILD_DATE);
 				color_printf("*aby Stephen Sviatko - (C) 2025 Good Neighbors LLC*d\n");
-				color_printf("*husage:*a carith <options>*d\n");
+				color_printf("*husage:*a carith <options> <file>*d\n");
 				color_printf("*a  -? (--help)*d this screen\n");
 				color_printf("*a     (--debug)*d enable debug mode\n");
 				color_printf("*a     (--nocolor)*d defeat colors\n");
 				color_printf("*a     (--threads) <count>*d specify number of theads to use (default *h%d*d)\n", g_threads);
 				color_printf("*a  -g (--segsize) <bytes>*d specify size of segments (default *h%d*d)\n", DEFAULT_SEGSIZE);
 				color_printf("*a  -v (--verbose)*d enable verbose mode\n");
+				color_printf("*a     (--norle)*d defeat RLE encode before arithmetic compression\n");
+				color_printf("*a     (--rleonly)*d RLE encode file only, no arithmetic compression\n");
 				color_printf("*hoperational modes*a (choose only one)*d\n");
 				color_printf("*a  -c (--compress) <file>*d compress a file\n");
 				color_printf("*a  -x (--extract) <file.carith>*d extract a file\n");
@@ -242,6 +260,13 @@ int main(int argc, char **argv)
 	}
 
 	setbuf(stdout, NULL); // disable buffering so we can print our ccct_progress
+
+	// police illogical RLE choices
+	if ((g_norle == 1) && (g_rleonly == 1)) {
+		color_err_printf(0, "carith: --norle and --rleonly are mutually exclusive. please select only one of these.");
+		color_err_printf(0, "carith: use -? or --help for usage information.");
+		exit(EXIT_FAILURE);
+	}
 
 	// police thread count
 	if (g_threads < 1) {
@@ -285,6 +310,8 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 		if (g_verbose) color_printf("*acarith:*d compressing *h%s*d\n", argv[optind]);
+		if (g_verbose && g_norle) color_printf("*acarith:*d defeating RLE encode before arithmetic compression.\n");
+		if (g_verbose && g_rleonly) color_printf("*acarith:*d RLE encode file only, no arithmetic compression.\n");
 	} else if (g_mode == MODE_EXTRACT) {
 		if (optind >= argc) {
 			color_err_printf(0, "carith: expected file argument.");
