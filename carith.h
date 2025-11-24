@@ -46,20 +46,20 @@ extern "C" {
 #include <stdint.h>
 
 typedef struct {
-    uint64_t     count_base;      ///< Running tally of counts so far in the table
-    uint64_t     count;           ///< Number of times this symbol occurs in plaintext
-} freq_entry_t;
+    uint64_t            count_base;       ///< Running tally of counts so far in the table
+    uint64_t            count;            ///< Number of times this symbol occurs in plaintext
+} carith_freq_entry_t;
 
 typedef struct {
-    freq_entry_t freq[256];       ///< Frequency table, contains list of ranges for all possible symbols
-    uint8_t      freq_comp[1024]; ///< Compressed frequency table, either enumerated or full
-    uint16_t     freq_comp_len;   ///< Length of compressed frequency table
-    uint8_t     *plain;           ///< Buffer for plaintext to be compressed
-    size_t       plain_len;       ///< Plaintext length
-    uint8_t     *comp;            ///< Buffer for compressed tokens, larger than plaintext buffer to guard against over-ratio compresions
-    size_t       comp_len;        ///< Length of compressed token stream
-    uint8_t     *decomp;          ///< Buffer for decompressed data
-    size_t       decomp_len;      ///< Length of decompressed data
+    carith_freq_entry_t freq[256];        ///< Frequency table, contains list of ranges for all possible symbols
+    uint8_t             freq_comp[1024];  ///< Compressed frequency table, either enumerated or full
+    uint16_t            freq_comp_len;    ///< Length of compressed frequency table
+    uint8_t            *plain;            ///< Buffer for plaintext to be compressed
+    size_t              plain_len;        ///< Plaintext length
+    uint8_t             *comp;            ///< Buffer for compressed tokens, larger than plaintext buffer to guard against over-ratio compresions
+    size_t              comp_len;         ///< Length of compressed token stream
+    uint8_t            *decomp;           ///< Buffer for decompressed data
+    size_t              decomp_len;       ///< Length of decompressed data
 } carith_comp_ctx;
 
 /**

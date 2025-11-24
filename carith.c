@@ -60,8 +60,10 @@ const char *carith_strerror(carith_error_t a_errno)
  *
  * @param[in] ctx Pointer to a carith context object pointer
  * @param[in] a_worksize Size in bytes of requested compression segment
+ */
 
 carith_error_t carith_init_ctx          (carith_comp_ctx *ctx, size_t a_worksize)
 {
     return CARITH_ERR_NONE;
 }
+
