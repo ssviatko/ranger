@@ -45,6 +45,8 @@ extern "C" {
 #include <stdio.h>
 #include <stdint.h>
 
+#include "cbit.h"
+
 typedef struct {
     uint64_t            count_base;       ///< Running tally of counts so far in the table
     uint64_t            count;            ///< Number of times this symbol occurs in plaintext
@@ -53,6 +55,7 @@ typedef struct {
 typedef struct {
     carith_freq_entry_t freq[256];        ///< Frequency table, contains list of ranges for all possible symbols
     uint8_t             freq_comp[1024];  ///< Compressed frequency table, either enumerated or full
+    cbit_cursor_t       bc;               ///< Bit cursor used by carith to write out frequency tables
     uint16_t            freq_comp_len;    ///< Length of compressed frequency table
     uint8_t            *plain;            ///< Buffer for plaintext to be compressed
     size_t              plain_len;        ///< Plaintext length

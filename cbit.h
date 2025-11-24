@@ -49,7 +49,7 @@ extern "C" {
 
 /**
  * @struct cbit_cursor_t
- * @brief The bit cbit_cursor
+ * @brief The bit cursor
  *
  * How to use: Initialize this structure with byte = 0, bit = 7, and buffer
  * set to point to a byte buffer that you wish to operate upon.
