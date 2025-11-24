@@ -11,15 +11,21 @@ CPP = g++
 LD = g++
 LDFLAGS = 
 TARGET = carith
-OBJS = main.o
+TARGET_OBJS = main.o
+TEST_TARGET = algo_test
+TEST_TARGET_OBJS = algo_test.o
 
-all: $(TARGET)
+all: $(TARGET) $(TEST_TARGET)
 
-$(TARGET): $(OBJS)
+$(TARGET): $(TARGET_OBJS)
 
 	@if ! test -f $(BUILD_NUMBER_FILE); then echo 0 > $(BUILD_NUMBER_FILE); fi
 	@echo $$(($$(cat $(BUILD_NUMBER_FILE)) + 1)) > $(BUILD_NUMBER_FILE)
-	$(LD) $(OBJS) -o $(TARGET) $(LDFLAGS)
+	$(LD) $(TARGET_OBJS) -o $(TARGET) $(LDFLAGS)
+
+$(TEST_TARGET): $(TEST_TARGET_OBJS)
+
+	$(LD) $(TEST_TARGET_OBJS) -o $(TEST_TARGET) $(LDFLAGS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $<
@@ -31,3 +37,4 @@ clean:
 	rm -f *.o
 	rm -f *~
 	rm -f $(TARGET)
+	rm -f $(TEST_TARGET)
