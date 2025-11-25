@@ -6,12 +6,14 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <pthread.h>
 
 #include "carith.h"
 
 #define MAXTHREADS 48
 #define DEFAULT_SEGSIZE 524288
+#define BUFFLEN 1024
 
 struct timeval g_start_time, g_end_time;
 int g_debug = 0;
@@ -20,6 +22,8 @@ int g_norle = 0;
 int g_rleonly = 0;
 uint32_t g_segsize = DEFAULT_SEGSIZE;
 enum { MODE_NONE, MODE_COMPRESS, MODE_EXTRACT, MODE_TELL } g_mode = MODE_NONE;
+char g_in[BUFFLEN];
+char g_out[BUFFLEN];
 
 // concurrency
 int g_threads = 8; // default thread count
@@ -158,6 +162,28 @@ void color_err_printf(int a_strerror, const char *format, ...)
 	va_start(args, format);
 	vfprintf(stderr, edited_format, args);
 	va_end(args);
+}
+
+void verify_file_argument()
+{
+	// stat the user specified file to make sure it exists
+	// no need to return anything as this will die if the file is not there or not a regular file
+	int res;
+	struct stat l_stat;
+	res = stat(g_in, &l_stat);
+	if (res < 0) {
+		color_err_printf(1, "carith: unable to stat input file");
+		exit(EXIT_FAILURE);
+	}
+	if ((l_stat.st_mode & S_IFMT) != S_IFREG) {
+		color_err_printf(0, "carith: input file is not a regular file.");
+		exit(EXIT_FAILURE);
+	}
+}
+
+void compress()
+{
+	// compress file g_in
 }
 
 int main(int argc, char **argv)
@@ -312,6 +338,10 @@ int main(int argc, char **argv)
 		if (g_verbose) color_printf("*acarith:*d compressing *h%s*d\n", argv[optind]);
 		if (g_verbose && g_norle) color_printf("*acarith:*d defeating RLE encode before arithmetic compression.\n");
 		if (g_verbose && g_rleonly) color_printf("*acarith:*d RLE encode file only, no arithmetic compression.\n");
+		g_in[0] = 0;
+		strcpy(g_in, argv[optind]);
+		verify_file_argument();
+		compress();
 	} else if (g_mode == MODE_EXTRACT) {
 		if (optind >= argc) {
 			color_err_printf(0, "carith: expected file argument.");
