@@ -156,10 +156,10 @@ void retrieve_range(carith_comp_ctx *ctx, uint8_t a_token, uint64_t *a_start, ui
 	uint64_t l_rangesize = *a_end - *a_start;
 	uint64_t l_start_orig = *a_start;
 
-//	printf("rr: passed %016lX %016lX ", *a_start, *a_end);
+	printf("rr: passed %016lX %016lX ", *a_start, *a_end);
 	*a_start = (__uint128_t)l_start_orig + ((__uint128_t)ctx->freq[a_token].count_base * (__uint128_t)l_rangesize) / (__uint128_t)ctx->plain_len;
 	*a_end = (__uint128_t)l_start_orig + ((((__uint128_t)ctx->freq[a_token].count_base + (__uint128_t)ctx->freq[a_token].count) * (__uint128_t)l_rangesize) / (__uint128_t)ctx->plain_len) - 1;
-//	printf("assigned token %02X - %ld/%ld/%ld  %016lX %016lX\n", a_token, ctx->freq[a_token].count_base, ctx->freq[a_token].count, ctx->plain_len, *a_start, *a_end);
+	printf("assigned token %02X - %ld/%ld/%ld  %016lX %016lX\n", a_token, ctx->freq[a_token].count_base, ctx->freq[a_token].count, ctx->plain_len, *a_start, *a_end);
 }
 
 uint8_t token_for_window(carith_comp_ctx *ctx, uint64_t a_window, uint64_t a_start, uint64_t a_end)
@@ -296,7 +296,7 @@ void process(carith_comp_ctx *ctx)
 		range_lo_hibyte = (range_lo >> 56);
 		range_hi_hibyte = (range_hi >> 56);
 		while (range_lo_hibyte == range_hi_hibyte) {
-//			printf("outputing pos %ld byte %02X\n", comp_ptr, range_lo_hibyte);
+			printf("outputing pos %ld byte %02X\n", comp_ptr, range_lo_hibyte);
 			ctx->comp[comp_ptr++] = range_lo_hibyte;
 			range_lo <<= 8;
 			range_hi <<= 8;
@@ -311,7 +311,7 @@ void process(carith_comp_ctx *ctx)
 //	printf("hi %016lX lo %016lx mid %016lx\n", range_hi, range_lo, l_mid);
 	for (i = 0; i < 8; ++i) {
 		range_lo_hibyte = (l_mid >> 56) & 0xff;
-//		printf("comp pos %ld outputting final 5-byte word %02X\n", comp_ptr, range_lo_hibyte);
+		printf("comp pos %ld outputting final 5-byte word %02X\n", comp_ptr, range_lo_hibyte);
 		ctx->comp[comp_ptr++] = range_lo_hibyte;
 		l_mid <<= 8;
 	}
@@ -592,8 +592,8 @@ int main(int argc, char **argv)
 	gettimeofday(&g_start_time, NULL);
 
 	chdir(argv[1]);
-	listdir(".");
-//	load_file("smallvs/medium");
+//	listdir(".");
+	load_file("algo_test");
 	gettimeofday(&g_end_time, NULL);
 
 	printf("completed operation in %ld seconds %ld usecs.\n",
