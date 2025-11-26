@@ -198,7 +198,7 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
         range_lo_hibyte = (range_lo >> 56);
         range_hi_hibyte = (range_hi >> 56);
         while (range_lo_hibyte == range_hi_hibyte) {
-			printf("outputing pos %ld byte %02X\n", comp_ptr, range_lo_hibyte);
+//			printf("outputing pos %ld byte %02X\n", comp_ptr, range_lo_hibyte);
             ctx->comp[comp_ptr++] = range_lo_hibyte;
             range_lo <<= 8;
             range_hi <<= 8;
@@ -213,7 +213,7 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
     //	printf("hi %016lX lo %016lx mid %016lx\n", range_hi, range_lo, l_mid);
     for (i = 0; i < 8; ++i) {
         range_lo_hibyte = (l_mid >> 56) & 0xff;
-        printf("comp pos %ld outputting final 5-byte word %02X\n", comp_ptr, range_lo_hibyte);
+//        printf("comp pos %ld outputting final 5-byte word %02X\n", comp_ptr, range_lo_hibyte);
         ctx->comp[comp_ptr++] = range_lo_hibyte;
         l_mid <<= 8;
     }
@@ -285,6 +285,7 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
     }
     //	printf("compressed frequency table length: %d\n", ctx->freq_comp_len);
     uint64_t total_comp_len = ctx->freq_comp_len + ctx->comp_len;
+    return CARITH_ERR_NONE;
 }
 
 /**

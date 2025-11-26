@@ -46,6 +46,7 @@ typedef struct {
 	uint8_t scheme;
 	uint32_t plain_crc; // crc of plain input file
 	uint32_t total_plain_len;
+	uint32_t segsize;
 } file_header;
 
 /* Block format:
@@ -222,6 +223,27 @@ void color_debug(const char *format, ...)
 	pthread_mutex_unlock(&g_debug_mtx);
 }
 
+void progress(uint32_t a_sofar, uint32_t a_total)
+{
+	static size_t l_lastsize = 0;
+	int i;
+	char l_txt[BUFFLEN];
+
+	// cover over our previous message
+	for (i = 0; i < l_lastsize; ++i)
+		printf("\b");
+	for (i = 0; i < l_lastsize; ++i)
+		printf(" ");
+	for (i = 0; i < l_lastsize; ++i)
+		printf("\b");
+
+	// print our message to l_txt to gauge the size on screen
+	sprintf(l_txt, "(%u of %u) ", a_sofar, a_total);
+	l_lastsize = strlen(l_txt);
+	// now print it on screen in color with ansi escape codes
+	if (g_verbose) color_printf("(*h%u*d of *h%u*d) ", a_sofar, a_total);
+}
+
 uint32_t g_crc32_tab[] = {
 	0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
 	0xe963a535, 0x9e6495a3,	0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
@@ -371,6 +393,7 @@ void compress()
 	l_fh.cookie = htons(g_cookie);
 	l_fh.scheme |= scheme_ac;
 	l_fh.total_plain_len = htonl(g_in_len);
+	l_fh.segsize = htonl(g_segsize);
 	res = write(g_out_fd, &l_fh, sizeof(l_fh));
 	if (res < 0) {
 		color_err_printf(1, "carith: unable to write file header to output file.");
@@ -386,6 +409,8 @@ void compress()
 	}
 
 	uint32_t l_crc = 0;
+	size_t l_sofar = 0;
+	progress(l_sofar, g_in_len);
 
 	do {
 		g_tally = 0;
@@ -406,6 +431,7 @@ void compress()
 			color_debug("read block %d from input file len %ld\n", l_block_ctr, res);
 			// compute crc on input file here
 			ctx[i].plain_len = res;
+			l_sofar += res;
 			l_crc = get_buffer_crc(l_crc, ctx[i].plain, ctx[i].plain_len);
 			// populate a thread and signal it
 			pthread_mutex_lock(&twa[i].sig_mtx);
@@ -460,7 +486,9 @@ void compress()
 				exit(EXIT_FAILURE);
 			}
 		}
+		progress(l_sofar, g_in_len);
 	} while (l_eof == 0);
+	if (g_verbose) printf("\n"); // after progress meter
 
 	color_debug("input file CRC: %08X\n", l_crc);
 	l_fh.plain_crc = htonl(l_crc);
@@ -473,6 +501,14 @@ void compress()
 	if (res < 0) {
 		color_err_printf(1, "carith: unable to write file header to output file after compression.");
 	}
+	// how big is the output file in totality?
+	struct stat l_stat;
+	res = stat(g_out, &l_stat);
+	if (res < 0) {
+		color_err_printf(1, "carith: unable to stat output file");
+		exit(EXIT_FAILURE);
+	}
+	if (g_verbose) color_printf("*acarith:*d compressed *h%s*d into *h%s*d (ratio *h%3.5f%%*d)\n", g_in, g_out, (float)(l_stat.st_size) / (float)(ntohl(l_fh.total_plain_len)) * 100.0);
 
 	color_debug("joining threads...\n");
 	// join threads
@@ -660,7 +696,7 @@ int main(int argc, char **argv)
 			color_err_printf(0, "carith: expected file argument.");
 			exit(EXIT_FAILURE);
 		}
-		if (g_verbose) color_printf("*acarith:*d compressing *h%s*d\n", argv[optind]);
+		if (g_verbose) color_printf("*acarith:*d compressing *h%s*d ... ", argv[optind]);
 		if (g_verbose && g_norle) color_printf("*acarith:*d defeating RLE encode before arithmetic compression.\n");
 		if (g_verbose && g_rleonly) color_printf("*acarith:*d RLE encode file only, no arithmetic compression.\n");
 		g_in[0] = 0;
