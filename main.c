@@ -330,8 +330,10 @@ void *compress_tf(void *arg)
 		}
 		pthread_mutex_unlock(&a_twa->sig_mtx);
 		// signalled, so preform action
-		color_debug("tid %d got block %d to work on\n", a_twa->id, a_twa->cur_block);
-
+//		color_debug("tid %d got block %d to work on\n", a_twa->id, a_twa->cur_block);
+		carith_compress(&ctx[a_twa->id]);
+		color_debug("tid %d block %d plain_len %ld comp_len %ld freq_comp_len %ld total_comp_len %ld\n", a_twa->id, a_twa->cur_block, ctx[a_twa->id].plain_len, ctx[a_twa->id].comp_len,
+					ctx[a_twa->id].freq_comp_len, (ctx[a_twa->id].comp_len + ctx[a_twa->id].freq_comp_len));
 		// done
 		a_twa->sigflag = 0;
 		// signal doneness
@@ -346,7 +348,7 @@ void compress()
 {
 	// compress file g_in
 	int res;
-	size_t i;
+	size_t i, j;
 	int l_eof = 0;
 	int l_docontinue = 0;
 	uint32_t l_block_ctr = 0;
@@ -422,8 +424,42 @@ void compress()
 		while (g_tally < i)
 			pthread_cond_wait(&g_tally_cond, &g_tally_mtx);
 		pthread_mutex_unlock(&g_tally_mtx);
-		// all our threads are done and the plains are all contained in the twa data structures
+		// all our threads are done and the plains are all contained in the ctx data structures
 		color_debug("processing %d blocks\n", i);
+		for (j = 0; j < i; ++j) {
+			// write comp_len + freq_comp_len to file as network byte order uint32_t
+			uint32_t l_total = ctx[j].comp_len + ctx[j].freq_comp_len;
+			l_total = htonl(l_total);
+			res = write(g_out_fd, &l_total, sizeof(l_total));
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != sizeof(l_total)) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(l_total));
+				exit(EXIT_FAILURE);
+			}
+			// write frequency table
+			res = write(g_out_fd, ctx[j].freq_comp, ctx[j].freq_comp_len);
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != ctx[j].freq_comp_len) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, ctx[j].freq_comp_len);
+				exit(EXIT_FAILURE);
+			}
+			// write token table
+			res = write(g_out_fd, ctx[j].comp, ctx[j].comp_len);
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != ctx[j].comp_len) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, ctx[j].comp_len);
+				exit(EXIT_FAILURE);
+			}
+		}
 	} while (l_eof == 0);
 
 	color_debug("input file CRC: %08X\n", l_crc);
