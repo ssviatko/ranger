@@ -33,6 +33,8 @@ off_t g_in_len;
 char g_out[BUFFLEN];
 int g_out_fd;
 const char *g_carith_suffix = ".carith";
+int g_keep = 1;
+const char *g_keep_suffix = ".plain";
 
 uint16_t g_cookie = 0xd5aa;
 
@@ -78,6 +80,11 @@ typedef struct {
 
 thread_work_area twa[MAXTHREADS];
 carith_comp_ctx ctx[MAXTHREADS];
+
+typedef enum {
+	FUNCTION_EXTRACT,
+	FUNCTION_TELL
+} extract_function_t;
 
 // options
 enum {
@@ -526,19 +533,112 @@ void compress()
 		pthread_cond_destroy(&twa[i].sig_cond);
 	}
 
+	if (g_keep == 0) {
+		// unlink g_in
+	}
+
 	color_debug("closing files and exiting\n");
 	close(g_in_fd);
 	close(g_out_fd);
 }
 
-void extract()
+void extract(extract_function_t a_func)
 {
-	// extract file g_in
-}
+	size_t i;
+	int res;
+	file_header l_fh;
+	struct stat l_in_stat;
 
-void tell()
-{
-	// info about g_in
+	res = read(g_in_fd, &l_fh, sizeof(l_fh));
+	if (res < 0) {
+		color_err_printf(1, "unable to read input file");
+		exit(EXIT_FAILURE);
+	}
+	res = stat(g_in, &l_in_stat);
+	if (res < 0) {
+		color_err_printf(1, "unable to stat input file");
+		exit(EXIT_FAILURE);
+	}
+
+	// tell mode is always verbose
+	if (a_func == FUNCTION_TELL)
+		g_verbose = 1;
+
+	if (ntohs(l_fh.cookie) == g_cookie) {
+		if (g_verbose) {
+			color_printf("*acarith:*d --- original file length: *h%ld*d\n", ntohl(l_fh.total_plain_len));
+			color_printf("*acarith:*d --- compression ratio:    *h%3.5f*d\n", (float)l_in_stat.st_size / (float)ntohl(l_fh.total_plain_len) * 100.0);
+			color_printf("*acarith:*d --- block size:           *h%d*d\n", ntohl(l_fh.segsize));
+			color_printf("*acarith:*d --- original file CRC:    *h%08X*d\n", ntohl(l_fh.plain_crc));
+			color_printf("*acarith:*d --- compression chain:    ");
+			if ((l_fh.scheme & 0x40) == 0x40)
+				color_printf("*hRLE *d");
+			if ((l_fh.scheme & 0x20) == 0x20)
+				color_printf("*hLZW *d");
+			if ((l_fh.scheme & 0x80) == 0x80)
+				color_printf("*hAC *d");
+			printf("\n");
+		}
+	} else {
+		color_err_printf(0, "carith: file is not a carith archive.");
+		close(g_in_fd);
+		exit(EXIT_FAILURE);
+	}
+
+	if (a_func == FUNCTION_TELL) {
+		close(g_in_fd);
+		return;
+	}
+
+	// if block size differs from what we have selected with -g (or our default), then recycle it
+	if (g_segsize != ntohl(l_fh.segsize)) {
+		color_debug("changing segsize from %d to %d\n", g_segsize, ntohl(l_fh.segsize));
+		carith_error_t init_error;
+		g_segsize = ntohl(l_fh.segsize);
+		// dispose them all
+		for (i = 0; i < g_threads; ++i) {
+			carith_free_ctx(&ctx[i]);
+		}
+		// then init them again
+		for (i = 0; i < g_threads; ++i) {
+			init_error = carith_init_ctx(&ctx[i], g_segsize);
+			if (init_error != CARITH_ERR_NONE) {
+				color_err_printf(0, "carith_init_ctx retuned %s.\n", carith_strerror(init_error));
+				exit(EXIT_FAILURE);
+			}
+		}
+	}
+
+	// create output file name
+	strcpy(g_out, g_in);
+	if (strlen(g_out) > 7) {
+		if (memcmp(g_out + strlen(g_out) - 7, g_carith_suffix, 7) == 0) {
+			// remove .carith suffix from output
+			g_out[strlen(g_out) - 7] = 0;
+			color_debug("stripped g_out of suffix: len %d: %s\n", strlen(g_out), g_out);
+		}
+	}
+	if (g_keep > 0) {
+		strcat(g_out, g_keep_suffix);
+	}
+
+	g_out_fd = open(g_out, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	if (g_out_fd < 0) {
+		color_err_printf(1, "unable to open output file");
+		exit(EXIT_FAILURE);
+	}
+
+	if (g_verbose) color_printf("*acarith:*d decompressing to *h%s*d ... ", g_out);
+
+	if (g_verbose) printf("\n");
+
+	if (g_keep == 0) {
+		// unlink g_in
+	}
+
+	close(g_in_fd);
+	close(g_out_fd);
+	return;
 }
 
 int main(int argc, char **argv)
@@ -697,6 +797,7 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 		if (g_verbose) color_printf("*acarith:*d compressing *h%s*d ... ", argv[optind]);
+		if (g_verbose) color_printf("*acarith:*d keep mode: *h%s*d\n", (g_keep ? "YES" : "NO"));
 		if (g_verbose && g_norle) color_printf("*acarith:*d defeating RLE encode before arithmetic compression.\n");
 		if (g_verbose && g_rleonly) color_printf("*acarith:*d RLE encode file only, no arithmetic compression.\n");
 		g_in[0] = 0;
@@ -709,10 +810,11 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 		if (g_verbose) color_printf("*acarith:*d extracting *h%s*d\n", argv[optind]);
+		if (g_verbose) color_printf("*acarith:*d keep mode: *h%s*d\n", (g_keep ? "YES" : "NO"));
 		g_in[0] = 0;
 		strcpy(g_in, argv[optind]);
 		verify_file_argument();
-		extract();
+		extract(FUNCTION_EXTRACT);
 	} else if (g_mode == MODE_TELL) {
 		if (optind >= argc) {
 			color_err_printf(0, "carith: expected file argument.");
@@ -722,7 +824,7 @@ int main(int argc, char **argv)
 		g_in[0] = 0;
 		strcpy(g_in, argv[optind]);
 		verify_file_argument();
-		tell();
+		extract(FUNCTION_TELL);
 	} else {
 		color_err_printf(0, "carith: please choose at least one operational mode.");
 		color_err_printf(0, "carith: use -? or --help for usage information.");
