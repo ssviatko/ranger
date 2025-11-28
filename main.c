@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
+#include <sys/types.h>
 #include <arpa/inet.h>
 #include <limits.h>
 #include <pthread.h>
@@ -30,11 +31,13 @@ enum { MODE_NONE, MODE_COMPRESS, MODE_EXTRACT, MODE_TELL } g_mode = MODE_NONE;
 char g_in[BUFFLEN];
 int g_in_fd;
 off_t g_in_len;
+mode_t g_in_mode;
 char g_out[BUFFLEN];
 int g_out_fd;
 const char *g_carith_suffix = ".carith";
 int g_keep = 1;
 const char *g_keep_suffix = ".plain";
+char g_dmbuff[4];
 
 uint16_t g_cookie = 0xd5aa;
 
@@ -46,6 +49,7 @@ const uint8_t scheme_lzw = 0x20;
 typedef struct {
 	uint16_t cookie; // network byte order
 	uint8_t scheme;
+	mode_t mode; // mode of original file
 	uint32_t plain_crc; // crc of plain input file
 	uint32_t total_plain_len;
 	uint32_t segsize;
@@ -81,18 +85,14 @@ typedef struct {
 thread_work_area twa[MAXTHREADS];
 carith_comp_ctx ctx[MAXTHREADS];
 
-typedef enum {
-	FUNCTION_EXTRACT,
-	FUNCTION_TELL
-} extract_function_t;
-
 // options
 enum {
 	OPT_DEBUG = 1001,
 	OPT_THREADS,
 	OPT_NORLE,
 	OPT_RLEONLY,
-	OPT_NOCOLOR
+	OPT_NOCOLOR,
+	OPT_NOKEEP
 };
 
 struct option g_options[] = {
@@ -107,6 +107,7 @@ struct option g_options[] = {
 	{ "nocolor", no_argument, NULL, OPT_NOCOLOR },
 	{ "norle", no_argument, NULL, OPT_NORLE },
 	{ "rleonly", no_argument, NULL, OPT_RLEONLY },
+	{ "nokeep", no_argument, NULL, OPT_NOKEEP },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -230,6 +231,20 @@ void color_debug(const char *format, ...)
 	pthread_mutex_unlock(&g_debug_mtx);
 }
 
+char *decimal_mode(mode_t a_mode)
+{
+	char u, g, o;
+
+	u = ((a_mode >> 6) & 7) | 0x30;
+	g = ((a_mode >> 3) & 7) | 0x30;
+	o = (a_mode & 7) | 0x30;
+	g_dmbuff[0] = u;
+	g_dmbuff[1] = g;
+	g_dmbuff[2] = o;
+	g_dmbuff[3] = 0;
+	return g_dmbuff;
+}
+
 void progress(uint32_t a_sofar, uint32_t a_total)
 {
 	static size_t l_lastsize = 0;
@@ -332,6 +347,8 @@ void verify_file_argument()
 		exit(EXIT_FAILURE);
 	}
 	g_in_len = l_stat.st_size;
+	g_in_mode = l_stat.st_mode;
+	color_debug("g_in stat - st_size %ld st_mode %08lX (%s)\n", l_stat.st_size, l_stat.st_mode, decimal_mode(l_stat.st_mode));
 	g_in_fd = open(g_in, O_RDONLY);
 	if (g_in_fd < 0) {
 		color_err_printf(1, "carith: can't open input file");
@@ -360,9 +377,13 @@ void *compress_tf(void *arg)
 		pthread_mutex_unlock(&a_twa->sig_mtx);
 		// signalled, so preform action
 //		color_debug("tid %d got block %d to work on\n", a_twa->id, a_twa->cur_block);
-		carith_compress(&ctx[a_twa->id]);
-		color_debug("tid %d block %d plain_len %ld comp_len %ld freq_comp_len %ld total_comp_len %ld\n", a_twa->id, a_twa->cur_block, ctx[a_twa->id].plain_len, ctx[a_twa->id].comp_len,
-					ctx[a_twa->id].freq_comp_len, (ctx[a_twa->id].comp_len + ctx[a_twa->id].freq_comp_len));
+		if (g_mode == MODE_COMPRESS) {
+			carith_compress(&ctx[a_twa->id]);
+			color_debug("tid %d block %d plain_len %ld comp_len %ld freq_comp_len %ld total_comp_len %ld plainCRC %08X compCRC %08X\n", a_twa->id, a_twa->cur_block, ctx[a_twa->id].plain_len, ctx[a_twa->id].comp_len, ctx[a_twa->id].freq_comp_len, (ctx[a_twa->id].comp_len + ctx[a_twa->id].freq_comp_len), get_buffer_crc(0, ctx[a_twa->id].plain, ctx[a_twa->id].plain_len), get_buffer_crc(0, ctx[a_twa->id].comp, ctx[a_twa->id].comp_len));
+		} else if (g_mode == MODE_EXTRACT) {
+			carith_extract(&ctx[a_twa->id]);
+			color_debug("tid %d block %d decomp_len %ld total_comp_len %ld compCRC %08X decompCRC %08X\n", a_twa->id, a_twa->cur_block, ctx[a_twa->id].decomp_len, (ctx[a_twa->id].comp_len + ctx[a_twa->id].freq_comp_len), get_buffer_crc(0, ctx[a_twa->id].comp, ctx[a_twa->id].comp_len), get_buffer_crc(0, ctx[a_twa->id].decomp, ctx[a_twa->id].decomp_len));
+		}
 		// done
 		a_twa->sigflag = 0;
 		// signal doneness
@@ -398,6 +419,7 @@ void compress()
 	// we will rewind here later to populate the CRC and the total file size
 	memset(&l_fh, 0, sizeof(l_fh));
 	l_fh.cookie = htons(g_cookie);
+	l_fh.mode = htonl(g_in_mode);
 	l_fh.scheme |= scheme_ac;
 	l_fh.total_plain_len = htonl(g_in_len);
 	l_fh.segsize = htonl(g_segsize);
@@ -416,6 +438,7 @@ void compress()
 	}
 
 	uint32_t l_crc = 0;
+	uint32_t l_block_crc = 0;
 	size_t l_sofar = 0;
 	progress(l_sofar, g_in_len);
 
@@ -435,11 +458,12 @@ void compress()
 				color_err_printf(1, "carith: unable to read input file");
 				exit(EXIT_FAILURE);
 			}
-			color_debug("read block %d from input file len %ld\n", l_block_ctr, res);
 			// compute crc on input file here
 			ctx[i].plain_len = res;
 			l_sofar += res;
 			l_crc = get_buffer_crc(l_crc, ctx[i].plain, ctx[i].plain_len);
+			l_block_crc = get_buffer_crc(0, ctx[i].plain, ctx[i].plain_len);
+			color_debug("read block %d from input file len %ld block CRC %08X\n", l_block_ctr, res, l_block_crc);
 			// populate a thread and signal it
 			pthread_mutex_lock(&twa[i].sig_mtx);
 			twa[i].cur_block = l_block_ctr;
@@ -463,6 +487,29 @@ void compress()
 			// write comp_len + freq_comp_len to file as network byte order uint32_t
 			uint32_t l_total = ctx[j].comp_len + ctx[j].freq_comp_len;
 			l_total = htonl(l_total);
+			res = write(g_out_fd, &l_total, sizeof(l_total));
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != sizeof(l_total)) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(l_total));
+				exit(EXIT_FAILURE);
+			}
+			// write freq_comp_len to file as network byte order uint16_t
+			uint16_t l_freqtotal = ctx[j].freq_comp_len;
+			l_freqtotal = htons(l_freqtotal);
+			res = write(g_out_fd, &l_freqtotal, sizeof(l_freqtotal));
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != sizeof(l_freqtotal)) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(l_freqtotal));
+				exit(EXIT_FAILURE);
+			}
+			// write block plain_len so the decompressor will know when to stop
+			l_total = htonl(ctx[j].plain_len);
 			res = write(g_out_fd, &l_total, sizeof(l_total));
 			if (res < 0) {
 				color_err_printf(1, "carith: unable to write to output file.");
@@ -535,6 +582,7 @@ void compress()
 
 	if (g_keep == 0) {
 		// unlink g_in
+		unlink(g_in);
 	}
 
 	color_debug("closing files and exiting\n");
@@ -542,9 +590,9 @@ void compress()
 	close(g_out_fd);
 }
 
-void extract(extract_function_t a_func)
+void extract()
 {
-	size_t i;
+	size_t i, j;
 	int res;
 	file_header l_fh;
 	struct stat l_in_stat;
@@ -561,12 +609,13 @@ void extract(extract_function_t a_func)
 	}
 
 	// tell mode is always verbose
-	if (a_func == FUNCTION_TELL)
+	if (g_mode == MODE_TELL)
 		g_verbose = 1;
 
 	if (ntohs(l_fh.cookie) == g_cookie) {
 		if (g_verbose) {
 			color_printf("*acarith:*d --- original file length: *h%ld*d\n", ntohl(l_fh.total_plain_len));
+			color_printf("*acarith:*d --- original file mode:   *h%08lX*d (*h%s*d)\n", ntohl(l_fh.mode), decimal_mode(ntohl(l_fh.mode)));
 			color_printf("*acarith:*d --- compression ratio:    *h%3.5f*d\n", (float)l_in_stat.st_size / (float)ntohl(l_fh.total_plain_len) * 100.0);
 			color_printf("*acarith:*d --- block size:           *h%d*d\n", ntohl(l_fh.segsize));
 			color_printf("*acarith:*d --- original file CRC:    *h%08X*d\n", ntohl(l_fh.plain_crc));
@@ -585,7 +634,7 @@ void extract(extract_function_t a_func)
 		exit(EXIT_FAILURE);
 	}
 
-	if (a_func == FUNCTION_TELL) {
+	if (g_mode == MODE_TELL) {
 		close(g_in_fd);
 		return;
 	}
@@ -630,10 +679,169 @@ void extract(extract_function_t a_func)
 
 	if (g_verbose) color_printf("*acarith:*d decompressing to *h%s*d ... ", g_out);
 
+	int l_eof = 0;
+	int l_block_ctr = 0;
+	int l_docontinue = 0;
+	uint32_t l_crc = 0;
+	uint32_t l_block_crc = 0;
+	uint32_t l_read_compsize;
+	uint32_t l_read_totalcompsize;
+	uint16_t l_read_freqsize;
+	uint32_t l_read_plainsize;
+
+	// spin up and init threads
+	for (i = 0; i < g_threads; ++i) {
+		pthread_mutex_init(&twa[i].sig_mtx, NULL);
+		pthread_cond_init(&twa[i].sig_cond, NULL);
+		twa[i].id = i;
+		twa[i].runflag = 1;
+		pthread_create(&twa[i].thread, NULL, compress_tf, &twa[i]);
+	}
+
+	size_t l_sofar = 0;
+	progress(l_sofar, ntohl(l_fh.total_plain_len));
+
+	do {
+		g_tally = 0;
+		for (i = 0; i < g_threads; ++i) {
+			res = read(g_in_fd, &l_read_totalcompsize, sizeof(uint32_t));
+			if (res == 0) {
+				// eof
+				l_eof = 1;
+				if (i == 0)
+					l_docontinue = 1;
+				break;
+				// at this point, i contains the number of bytes successfully read
+			}
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < sizeof(uint32_t)) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(uint32_t));
+				exit(EXIT_FAILURE);
+			}
+			l_read_totalcompsize = ntohl(l_read_totalcompsize);
+			res = read(g_in_fd, &l_read_freqsize, sizeof(uint16_t));
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < sizeof(uint16_t)) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(uint16_t));
+				exit(EXIT_FAILURE);
+			}
+			l_read_freqsize = ntohs(l_read_freqsize);
+			l_read_compsize = l_read_totalcompsize - l_read_freqsize;
+			res = read(g_in_fd, &l_read_plainsize, sizeof(uint32_t));
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < sizeof(uint32_t)) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(uint32_t));
+				exit(EXIT_FAILURE);
+			}
+			l_read_plainsize = ntohl(l_read_plainsize);
+
+			color_debug("block %d totalcompsize %d compsize %d freqsize %d\n", l_block_ctr, l_read_totalcompsize, l_read_compsize, l_read_freqsize);
+			ctx[i].block_num = l_block_ctr;
+			ctx[i].plain_len = l_read_plainsize;
+			ctx[i].freq_comp_len = l_read_freqsize;
+			res = read(g_in_fd, ctx[i].freq_comp, l_read_freqsize);
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < l_read_freqsize) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, l_read_freqsize);
+				exit(EXIT_FAILURE);
+			}
+			ctx[i].comp_len = l_read_compsize;
+			res = read(g_in_fd, ctx[i].comp, l_read_compsize);
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < l_read_compsize) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, l_read_compsize);
+				exit(EXIT_FAILURE);
+			}
+
+			// populate a thread and signal it
+			pthread_mutex_lock(&twa[i].sig_mtx);
+			twa[i].cur_block = l_block_ctr;
+			twa[i].sigflag = 1;
+			pthread_cond_signal(&twa[i].sig_cond);
+			pthread_mutex_unlock(&twa[i].sig_mtx);
+
+			l_block_ctr++;
+		}
+		if (l_docontinue > 0)
+			continue;
+
+		color_debug("waiting for threads to finish\n");
+		// wait for threads to finish
+		pthread_mutex_lock(&g_tally_mtx);
+		while (g_tally < i)
+			pthread_cond_wait(&g_tally_cond, &g_tally_mtx);
+		pthread_mutex_unlock(&g_tally_mtx);
+
+		// all our threads are done and the plains are all contained in the ctx data structures
+		color_debug("processing %d blocks\n", i);
+		for (j = 0; j < i; ++j) {
+			l_crc = get_buffer_crc(l_crc, ctx[j].decomp, ctx[j].decomp_len);
+			l_block_crc = get_buffer_crc(0, ctx[j].decomp, ctx[j].decomp_len);
+			color_debug("writing block %d to file. block CRC: %08X\n", ctx[j].block_num, l_block_crc);
+			// write plains to file
+			res = write(g_out_fd, ctx[j].decomp, ctx[j].decomp_len);
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != ctx[j].decomp_len) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, ctx[j].decomp_len);
+				exit(EXIT_FAILURE);
+			}
+			l_sofar += ctx[j].decomp_len;
+		}
+		progress(l_sofar, ntohl(l_fh.total_plain_len));
+	} while (l_eof == 0);
+
 	if (g_verbose) printf("\n");
+	color_debug("output file CRC: %08X\n", l_crc);
+	if (l_crc != htonl(l_fh.plain_crc)) {
+		color_printf("*acarith:*d *eCRC mismatch*d, expected *h%08X*d but got *h%08X*d.\n", htonl(l_fh.plain_crc), l_crc);
+	} else {
+		if (g_verbose) color_printf("*acarith:*d CRC *hOK*d (*h%08X*d)\n", l_crc);
+	}
+
+	color_debug("joining threads...\n");
+	// join threads
+	for (i = 0; i < g_threads; ++i) {
+		pthread_mutex_lock(&twa[i].sig_mtx);
+		twa[i].runflag = 0;
+		pthread_cond_signal(&twa[i].sig_cond);
+		pthread_mutex_unlock(&twa[i].sig_mtx);
+		pthread_join(twa[i].thread, NULL);
+	}
+	color_debug("destroying synchronization primitives...\n");
+	// clean up
+	for (i = 0; i < g_threads; ++i) {
+		pthread_mutex_destroy(&twa[i].sig_mtx);
+		pthread_cond_destroy(&twa[i].sig_cond);
+	}
 
 	if (g_keep == 0) {
 		// unlink g_in
+		unlink(g_in);
+	}
+
+	// set mode of output file to whatever the original file had
+	res = chmod(g_out, ntohl(l_fh.mode));
+	if (res < 0) {
+		color_err_printf(1, "unable to chmod output file to original mode");
+		exit(EXIT_FAILURE);
 	}
 
 	close(g_in_fd);
@@ -683,6 +891,11 @@ int main(int argc, char **argv)
 			case 'v': // verbose
 			{
 				g_verbose = 1;
+			}
+			break;
+			case OPT_NOKEEP:
+			{
+				g_keep = 0;
 			}
 			break;
 			case 'c': // compress
@@ -736,6 +949,7 @@ int main(int argc, char **argv)
 				color_printf("*a  -v (--verbose)*d enable verbose mode\n");
 				color_printf("*a     (--norle)*d defeat RLE encode before arithmetic compression\n");
 				color_printf("*a     (--rleonly)*d RLE encode file only, no arithmetic compression\n");
+				color_printf("*a     (--nokeep)*d delete input files, like UNIX compress command\n");
 				color_printf("*hoperational modes*a (choose only one)*d\n");
 				color_printf("*a  -c (--compress) <file>*d compress a file\n");
 				color_printf("*a  -x (--extract) <file.carith>*d extract a file\n");
@@ -796,8 +1010,8 @@ int main(int argc, char **argv)
 			color_err_printf(0, "carith: expected file argument.");
 			exit(EXIT_FAILURE);
 		}
-		if (g_verbose) color_printf("*acarith:*d compressing *h%s*d ... ", argv[optind]);
 		if (g_verbose) color_printf("*acarith:*d keep mode: *h%s*d\n", (g_keep ? "YES" : "NO"));
+		if (g_verbose) color_printf("*acarith:*d compressing *h%s*d ... ", argv[optind]);
 		if (g_verbose && g_norle) color_printf("*acarith:*d defeating RLE encode before arithmetic compression.\n");
 		if (g_verbose && g_rleonly) color_printf("*acarith:*d RLE encode file only, no arithmetic compression.\n");
 		g_in[0] = 0;
@@ -809,12 +1023,12 @@ int main(int argc, char **argv)
 			color_err_printf(0, "carith: expected file argument.");
 			exit(EXIT_FAILURE);
 		}
-		if (g_verbose) color_printf("*acarith:*d extracting *h%s*d\n", argv[optind]);
 		if (g_verbose) color_printf("*acarith:*d keep mode: *h%s*d\n", (g_keep ? "YES" : "NO"));
+		if (g_verbose) color_printf("*acarith:*d extracting *h%s*d\n", argv[optind]);
 		g_in[0] = 0;
 		strcpy(g_in, argv[optind]);
 		verify_file_argument();
-		extract(FUNCTION_EXTRACT);
+		extract();
 	} else if (g_mode == MODE_TELL) {
 		if (optind >= argc) {
 			color_err_printf(0, "carith: expected file argument.");
@@ -824,7 +1038,7 @@ int main(int argc, char **argv)
 		g_in[0] = 0;
 		strcpy(g_in, argv[optind]);
 		verify_file_argument();
-		extract(FUNCTION_TELL);
+		extract();
 	} else {
 		color_err_printf(0, "carith: please choose at least one operational mode.");
 		color_err_printf(0, "carith: use -? or --help for usage information.");

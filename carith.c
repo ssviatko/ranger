@@ -284,7 +284,7 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
         ctx->freq_comp_len = ftbl_full_len;
     }
     //	printf("compressed frequency table length: %d\n", ctx->freq_comp_len);
-    uint64_t total_comp_len = ctx->freq_comp_len + ctx->comp_len;
+//    uint64_t total_comp_len = ctx->freq_comp_len + ctx->comp_len;
     return CARITH_ERR_NONE;
 }
 
@@ -292,7 +292,115 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
  * @brief Decompress comp buffer into decomp buffer
  */
 
-carith_error_t carith_decompress(carith_comp_ctx *ctx)
+carith_error_t carith_extract(carith_comp_ctx *ctx)
 {
+    uint64_t range_lo, range_hi;
+    cbit_cursor_t bc;
+    uint8_t range_lo_hibyte, range_hi_hibyte; // bits 32-40 of the range
+    size_t comp_ptr, decomp_ptr;
+    size_t i;
+    uint64_t window;
+    uint16_t countwidth;
+    uint16_t ftbl_enum_entries;
 
+    // obliterate frequency table
+    for (i = 0; i < 256; ++i) {
+        ctx->freq[i].count = 0;
+        ctx->freq[i].count_base = 0;
+    }
+
+    // read compressed frequency table
+    uint64_t base_tab = 0;
+    bc.byte = 0;
+    bc.bit = 7;
+    bc.buffer = ctx->freq_comp;;
+    int ftbl_type = cbit_read(&bc);
+    if (ftbl_type == 1) {
+        countwidth = cbit_read_many(&bc, 5);
+        ftbl_enum_entries = cbit_read_many(&bc, 9);
+        //		printf("read compressed table - countwidth %d ftbl_enum_entries %ld\n", countwidth, ftbl_enum_entries);
+        for (i = 0; i < ftbl_enum_entries; ++i) {
+            uint8_t symbol = cbit_read_many(&bc, 8);
+            uint64_t symbol_count = cbit_read_many(&bc, countwidth);
+            ctx->freq[symbol].count_base = base_tab;
+            ctx->freq[symbol].count = symbol_count;
+            base_tab += symbol_count;
+        }
+    } else {
+        countwidth = cbit_read_many(&bc, 5);
+        for (i = 0; i < 256; ++i) {
+            ctx->freq[i].count_base = base_tab;
+            uint64_t symbol_count = cbit_read_many(&bc, countwidth);
+            ctx->freq[i].count = symbol_count;
+            base_tab += symbol_count;
+        }
+    }
+
+    // change decomp to plain once this is debugged and tested
+    range_lo = 0;
+    range_hi = ULLONG_MAX;
+    //	assign_ranges(ctx, range_lo, range_hi);
+    comp_ptr = 0;
+    decomp_ptr = 0;
+    // prime the pump
+    window = 0;
+    for (i = 0; i < 8; ++i) {
+        window <<= 8;
+        window |= ctx->comp[comp_ptr++];
+    }
+
+    while (1) {
+        //		assign_ranges(ctx, range_lo, range_hi);
+        //		found = 0; // keep track of whether or not we found the range. If we didn't find the range, this is a fatal error!
+        //		printf("comp_ptr %ld decomp_ptr %ld\n", comp_ptr, decomp_ptr);
+        // find which range window falls between
+        //		uint64_t l_rangesize = range_hi - range_lo;
+        //		uint64_t l_windowpos = window - range_lo;
+        //		uint64_t l_countpos = ((__uint128_t)l_windowpos * (__uint128_t)ctx->plain_len) / (__uint128_t)l_rangesize;
+        //		printf("l_rangesize %016lX l_windowpos %016lX l_countpos %ld plain_len %ld\n", l_rangesize, l_windowpos, (uint64_t)l_countpos, ctx->plain_len);
+        //		for (i = 0; i < 256; ++i) {
+        //			printf("i %ld %ld %ld\n", i, ctx->freq[i].count_base, ctx->freq[i].count_base + ctx->freq[i].count);
+        //			if ((l_countpos >= ctx->freq[i].count_base) && (l_countpos < ctx->freq[i].count_base + ctx->freq[i].count))
+        //				break;
+        //		}
+        i = token_for_window(ctx, window, range_lo, range_hi);
+        // i should equal the token we are looking for
+        //		printf("discovered window %016lX conforms to %02lX\n", window, i);
+        //		printf("%ld\n", i);
+        // output i to decomp stream
+        //		printf("decomp_ptr %ld outputting %02lX\n", decomp_ptr, i);
+        ctx->decomp[decomp_ptr++] = i;
+        retrieve_range(ctx, i, &range_lo, &range_hi);
+        //		printf("new range %016lX %016lX\n", range_lo, range_hi);
+        //		found = 1;
+        //		range_lo = ctx->freq[i].range_start;
+        //		range_hi = ctx->freq[i].range_end;
+        range_lo_hibyte = (range_lo >> 56);
+        range_hi_hibyte = (range_hi >> 56);
+        while (range_lo_hibyte == range_hi_hibyte) {
+            //			printf("hibyte equivalency %02X range_lo %010lX range_hi %010lx\n", range_lo_hibyte, range_lo, range_hi);
+            // scoot our ranges over by 8 bits
+            range_lo <<= 8;
+            range_hi <<= 8;
+            range_hi |= 0xff;
+            // slide our window over and read next compressed byte into the low position
+            window <<= 8;
+            window |= ctx->comp[comp_ptr++];
+            // refresh our hibyte values for the next test at top of loop
+            range_lo_hibyte = (range_lo >> 56);
+            range_hi_hibyte = (range_hi >> 56);
+            //			printf("scoot     %016lX %016lX\n", range_lo, range_hi);
+        }
+        //			assign_ranges(ctx, range_lo, range_hi);
+        //		if (found == 0) {
+        //			printf("range not found! %010lX\n", window);
+        //			exit(EXIT_FAILURE);
+        //		}
+        if (decomp_ptr >= ctx->plain_len)
+            break;
+    }
+    ctx->decomp_len = decomp_ptr;
+
+//    printf("== decompressed %ld bytes into %ld -- ", ctx->comp_len, ctx->decomp_len);
+    return CARITH_ERR_NONE;
 }

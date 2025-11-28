@@ -56,6 +56,7 @@ typedef struct {
 } carith_freq_entry_t;
 
 typedef struct {
+    uint32_t            block_num;        ///< Optional tag for block number, used by implementation
     carith_freq_entry_t freq[256];        ///< Frequency table, contains list of ranges for all possible symbols
     uint8_t             freq_comp[1024];  ///< Compressed frequency table, either enumerated or full
     cbit_cursor_t       bc;               ///< Bit cursor used by carith to write out frequency tables
@@ -82,7 +83,7 @@ const char    *carith_strerror   (carith_error_t a_errno);
 carith_error_t carith_init_ctx   (carith_comp_ctx *ctx, size_t a_worksize);
 carith_error_t carith_free_ctx   (carith_comp_ctx *ctx);
 carith_error_t carith_compress   (carith_comp_ctx *ctx);
-carith_error_t carith_decompress (carith_comp_ctx *ctx);
+carith_error_t carith_extract    (carith_comp_ctx *ctx);
 
 #ifdef __cplusplus
 }
