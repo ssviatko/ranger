@@ -357,6 +357,228 @@ void verify_file_argument()
 	color_debug("opened input file %s, size %ld\n", g_in, g_in_len);
 }
 
+int rle_encode(int a_in_fd, int a_out_fd)
+{
+	uint8_t RLE_ESCAPE = 0x55;
+	const uint8_t RLE_INCREMENT = 0x3B;
+	int res;
+	int l_eof = 0;
+	size_t i;
+	uint8_t l_new, l_old = 0, l_count = 0;
+	int l_clear = 1; // set this to indicate l_old is empty
+
+	// sliding window RLE
+	do {
+		res = read(a_in_fd, &l_new, 1);
+		if (res == 0) {
+			l_eof = 1;
+			continue;
+		}
+		if (res != 1)
+			return -1;
+		// did we encounter an escape? If so, flush the window then double it up, then rotate the escape
+		if (l_new == RLE_ESCAPE) {
+			if (l_clear == 0) {
+				if (l_count > 0) {
+					// if we've repeated fewer than 4 times, just write the bytes themselves
+					if (l_count < 3) {
+						for (i = 0; i <= l_count; ++i) {
+							res = write(a_out_fd, &l_old, 1);
+							if (res != 1)
+								return -1;
+						}
+						l_count = 0;
+					} else {
+						// write out compound set
+						res = write(a_out_fd, &RLE_ESCAPE, 1);
+						if (res != 1)
+							return -1;
+						res = write(a_out_fd, &l_old, 1);
+						if (res != 1)
+							return -1;
+						char lc1 = l_count + 1;
+						res = write(a_out_fd, &lc1, 1);
+						if (res != 1)
+							return -1;
+						l_count = 0;
+						RLE_ESCAPE += RLE_INCREMENT;
+					}
+				} else {
+					// weren't counting when we encountered escape, so just write out l_old
+					res = write(a_out_fd, &l_old, 1);
+					if (res != 1)
+						return -1;
+				}
+			}
+			res = write(a_out_fd, &RLE_ESCAPE, 1);
+			if (res != 1)
+				return -1;
+			res = write(a_out_fd, &RLE_ESCAPE, 1);
+			if (res != 1)
+				return -1;
+			RLE_ESCAPE += RLE_INCREMENT;
+			l_clear = 1;
+			continue;
+		}
+
+		// first time through the loop (and after escapes), just stash away the first byte
+		if (l_clear == 1) {
+			l_old = l_new;
+			l_clear = 0;
+			continue;
+		}
+
+		if (l_old == l_new) {
+			++l_count;
+			if (l_count == 254) { // 254 repeats = 255 characters
+				// flush window and restart the count if we reached count limit
+				res = write(a_out_fd, &RLE_ESCAPE, 1);
+				if (res != 1)
+					return -1;
+				res = write(a_out_fd, &l_old, 1);
+				if (res != 1)
+					return -1;
+				char lc1 = l_count + 1;
+				res = write(a_out_fd, &lc1, 1);
+				if (res != 1)
+					return -1;
+				RLE_ESCAPE += RLE_INCREMENT;
+				l_count = 0;
+				l_clear = 1;
+			}
+		} else {
+			if (l_count > 0) {
+				// if we've repeated fewer than 4 times, just write the bytes themselves
+				if (l_count < 3) {
+					for (i = 0; i <= l_count; ++i) {
+						res = write(a_out_fd, &l_old, 1);
+						if (res != 1)
+							return -1;
+					}
+					l_count = 0;
+				} else {
+					// write out compound set
+					res = write(a_out_fd, &RLE_ESCAPE, 1);
+					if (res != 1)
+						return -1;
+					res = write(a_out_fd, &l_old, 1);
+					if (res != 1)
+						return -1;
+					char lc1 = l_count + 1;
+					res = write(a_out_fd, &lc1, 1);
+					if (res != 1)
+						return -1;
+					RLE_ESCAPE += RLE_INCREMENT;
+					l_count = 0;
+				}
+			} else {
+				// got different byte, but no repeat, so write out old
+				res = write(a_out_fd, &l_old, 1);
+				if (res != 1)
+					return -1;
+			}
+			l_old = l_new;
+		}
+	} while (l_eof == 0);
+
+	// flush window
+	if (!l_clear) {
+		if (l_count > 0) {
+			if (l_count < 3) {
+				for (i = 0; i <= l_count; ++i) {
+					res = write(a_out_fd, &l_old, 1);
+					if (res != 1)
+						return -1;
+				}
+				l_count = 0;
+			} else {
+				// write out compound set
+				res = write(a_out_fd, &RLE_ESCAPE, 1);
+				if (res != 1)
+					return -1;
+				res = write(a_out_fd, &l_old, 1);
+				if (res != 1)
+					return -1;
+				char lc1 = l_count + 1;
+				res = write(a_out_fd, &lc1, 1);
+				if (res != 1)
+					return -1;
+				RLE_ESCAPE += RLE_INCREMENT;
+				l_count = 0;
+			}
+		} else {
+			res = write(a_out_fd, &l_old, 1);
+			if (res != 1)
+				return -1;
+		}
+	}
+	return 0;
+}
+
+int rle_decode(int a_in_fd, int a_out_fd)
+{
+	uint8_t RLE_ESCAPE = 0x55;
+	const uint8_t RLE_INCREMENT = 0x3B;
+	int res;
+	int l_eof = 0;
+	char repbuffer[256];
+
+	uint64_t l_repeat = 0;
+	enum { COLLECTING, FOUND_ESCAPE, FOUND_CHAR } l_state = COLLECTING;
+
+	do {
+		uint8_t l_new;
+		res = read(a_in_fd, &l_new, 1);
+		if (res == 0) {
+			l_eof = 1;
+			continue;
+		}
+		if (res != 1)
+			return -1;
+		switch (l_state) {
+			case COLLECTING:
+				if (l_new == RLE_ESCAPE) {
+					l_state = FOUND_ESCAPE;
+				} else {
+					// just a normal char, so write it out
+					res = write(a_out_fd, &l_new, 1);
+					if (res != 1)
+						return -1;
+				}
+				break;
+			case FOUND_ESCAPE:
+				if (l_new == RLE_ESCAPE) {
+					// found second escape character, so write it then rotate escape
+					res = write(a_out_fd, &l_new, 1);
+					if (res != 1)
+						return -1;
+					RLE_ESCAPE += RLE_INCREMENT;
+					l_state = COLLECTING;
+				} else {
+					// something else, must be the char we need to repeat
+					l_repeat = l_new;
+					l_state = FOUND_CHAR;
+				}
+				break;
+			case FOUND_CHAR:
+				if (l_new > 0) {
+					memset(repbuffer, l_repeat, 256);
+					res = write(a_out_fd, repbuffer, l_new);
+					if (res != l_new)
+						return -1;
+					RLE_ESCAPE += RLE_INCREMENT;
+					l_state = COLLECTING;
+				} else {
+					// value of 0 is illegali in a repeat construct, so data stream must be corrupted
+					color_err_printf(0, "rle_decode: Illegal character in stream, possible data corruption.");
+					exit(EXIT_FAILURE);
+				}
+				break;
+		}
+	} while (l_eof == 0);
+	return 0;
+}
+
 void *compress_tf(void *arg)
 {
 	thread_work_area *a_twa;
@@ -420,13 +642,74 @@ void compress()
 	memset(&l_fh, 0, sizeof(l_fh));
 	l_fh.cookie = htons(g_cookie);
 	l_fh.mode = htonl(g_in_mode);
-	l_fh.scheme |= scheme_ac;
+	if (g_rleonly) {
+		l_fh.scheme |= scheme_rle;
+	} else if (g_norle) {
+		l_fh.scheme |= scheme_ac;
+	} else {
+		l_fh.scheme |= scheme_ac;
+		l_fh.scheme |= scheme_rle;
+	}
 	l_fh.total_plain_len = htonl(g_in_len);
 	l_fh.segsize = htonl(g_segsize);
 	res = write(g_out_fd, &l_fh, sizeof(l_fh));
 	if (res < 0) {
 		color_err_printf(1, "carith: unable to write file header to output file.");
 	}
+
+	if (g_norle == 1)
+		goto compress_norle;
+
+	// RLE encode input file in place in directory
+	if (g_verbose) color_printf("*acarith:*d RLE encoding input file...\n");
+	char l_template[32];
+	strcpy(l_template, "carithtmpXXXXXX");
+	int tmp_fd = mkstemp(l_template);
+	if (tmp_fd < 0) {
+		color_err_printf(1, "unable to make temporary file");
+		exit(EXIT_FAILURE);
+	}
+	color_debug("temporary file %s\n", l_template);
+	res = rle_encode(g_in_fd, tmp_fd);
+	if (res < 0) {
+		color_err_printf(0, "error from rle_encode");
+		exit(EXIT_FAILURE);
+	}
+	res = lseek(tmp_fd, 0, SEEK_SET);
+	if (res < 0) {
+		color_err_printf(1, "unable to seek temporary file");
+		exit(EXIT_FAILURE);
+	}
+	close(g_in_fd);
+	// replace g_in_fd with our temporary file, rewound to zero
+	g_in_fd = tmp_fd;
+	// rle only?
+	if (g_rleonly) {
+		// copy temp file into output
+		int readlen;
+		char tmp_buff[BUFFLEN];
+		do {
+			readlen = read(g_in_fd, tmp_buff, BUFFLEN);
+			if (readlen == 0)
+				continue;
+			if (readlen < 0) {
+				color_err_printf(1, "unable to read temporary file");
+				exit(EXIT_FAILURE);
+			}
+			res = write(g_out_fd, tmp_buff, readlen);
+			if (res < 0) {
+				color_err_printf(1, "unable to write output file");
+				exit(EXIT_FAILURE);
+			}
+		} while (readlen != 0);
+		close(g_in_fd);
+		unlink(l_template);
+		close(g_out_fd);
+		return;
+	}
+
+compress_norle:
+	if (g_verbose) color_printf("*acarith:*d compressing *h%s*d ... ", g_in);
 
 	// spin up and init threads
 	for (i = 0; i < g_threads; ++i) {
@@ -588,6 +871,9 @@ void compress()
 	color_debug("closing files and exiting\n");
 	close(g_in_fd);
 	close(g_out_fd);
+	if (g_norle == 0) {
+		unlink(l_template);
+	}
 }
 
 void extract()
@@ -675,6 +961,11 @@ void extract()
 	if (g_out_fd < 0) {
 		color_err_printf(1, "unable to open output file");
 		exit(EXIT_FAILURE);
+	}
+
+	if (l_fh.scheme  == scheme_rle) {
+		// rle only file
+		goto extract_skipac;
 	}
 
 	if (g_verbose) color_printf("*acarith:*d decompressing to *h%s*d ... ", g_out);
@@ -831,6 +1122,78 @@ void extract()
 		pthread_mutex_destroy(&twa[i].sig_mtx);
 		pthread_cond_destroy(&twa[i].sig_cond);
 	}
+
+extract_skipac:
+	// fall through to here if we skipped AC
+	if ((l_fh.scheme & 0xc0) == scheme_ac) {
+		// AC only, so skip RLE decode
+		goto extract_skiprle;
+	}
+	color_printf("*acarith:*d RLE decoding output...\n");
+	// rewind outfile
+	res = lseek(g_out_fd, 0, SEEK_SET);
+	if (res < 0) {
+		color_err_printf(1, "unable to rewind output file");
+		exit(EXIT_FAILURE);
+	}
+	char l_template[32];
+	strcpy(l_template, "carithtmpXXXXXX");
+	int tmp_fd = mkstemp(l_template);
+	if (tmp_fd < 0) {
+		color_err_printf(1, "can't create temp file");
+		exit(EXIT_FAILURE);
+	}
+	color_debug("temporary file %s\n", l_template);
+	if ((l_fh.scheme & 0x80) == 0) {
+		// no AC, so read right from the input file
+		color_debug("rle_decode from g_in_fd to tmp_fd");
+		res = rle_decode(g_in_fd, tmp_fd);
+		if (res < 0) {
+			color_err_printf(0, "error from rle_decode");
+			exit(EXIT_FAILURE);
+		}
+	} else {
+		color_debug("rle_decode from g_out_fd to tmp_fd");
+		res = rle_decode(g_out_fd, tmp_fd);
+		if (res < 0) {
+			color_err_printf(0, "error from rle_decode");
+			exit(EXIT_FAILURE);
+		}
+	}
+	close(g_out_fd);
+	unlink(g_out);
+	// rewind temp file
+	res = lseek(tmp_fd, 0, SEEK_SET);
+	if (res < 0) {
+		color_err_printf(1, "unable to rewind temporary file");
+		exit(EXIT_FAILURE);
+	}
+	g_out_fd = open(g_out, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	if (g_out_fd < 0) {
+		color_err_printf(1, "can't reopen output file");
+		exit(EXIT_FAILURE);
+	}
+	// copy temp file into output
+	int readlen;
+	char tmp_buff[BUFFLEN];
+	do {
+		readlen = read(tmp_fd, tmp_buff, BUFFLEN);
+		if (readlen == 0)
+			continue;
+		if (readlen < 0) {
+			color_err_printf(1, "unable to read temporary file");
+			exit(EXIT_FAILURE);
+		}
+		res = write(g_out_fd, tmp_buff, readlen);
+		if (res < 0) {
+			color_err_printf(1, "unable to write output file");
+			exit(EXIT_FAILURE);
+		}
+	} while (readlen != 0);
+	close(tmp_fd);
+	unlink(l_template);
+
+extract_skiprle:
 
 	if (g_keep == 0) {
 		// unlink g_in
@@ -1011,7 +1374,6 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 		if (g_verbose) color_printf("*acarith:*d keep mode: *h%s*d\n", (g_keep ? "YES" : "NO"));
-		if (g_verbose) color_printf("*acarith:*d compressing *h%s*d ... ", argv[optind]);
 		if (g_verbose && g_norle) color_printf("*acarith:*d defeating RLE encode before arithmetic compression.\n");
 		if (g_verbose && g_rleonly) color_printf("*acarith:*d RLE encode file only, no arithmetic compression.\n");
 		g_in[0] = 0;
