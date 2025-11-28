@@ -357,7 +357,7 @@ void verify_file_argument()
 	color_debug("opened input file %s, size %ld\n", g_in, g_in_len);
 }
 
-int rle_encode(int a_in_fd, int a_out_fd)
+int rle_encode(int a_in_fd, int a_out_fd, uint32_t *a_crc_in)
 {
 	uint8_t RLE_ESCAPE = 0x55;
 	const uint8_t RLE_INCREMENT = 0x3B;
@@ -376,6 +376,8 @@ int rle_encode(int a_in_fd, int a_out_fd)
 		}
 		if (res != 1)
 			return -1;
+		*a_crc_in = get_buffer_crc(*a_crc_in, &l_new, 1);
+
 		// did we encounter an escape? If so, flush the window then double it up, then rotate the escape
 		if (l_new == RLE_ESCAPE) {
 			if (l_clear == 0) {
@@ -660,6 +662,7 @@ void compress()
 	if (g_norle == 1)
 		goto compress_norle;
 
+	uint32_t l_outer_crc = 0; // need to replace the CRC since we are handling the input file now
 	// RLE encode input file in place in directory
 	if (g_verbose) color_printf("*acarith:*d RLE encoding input file...\n");
 	char l_template[32];
@@ -670,7 +673,8 @@ void compress()
 		exit(EXIT_FAILURE);
 	}
 	color_debug("temporary file %s\n", l_template);
-	res = rle_encode(g_in_fd, tmp_fd);
+	res = rle_encode(g_in_fd, tmp_fd, &l_outer_crc);
+	color_debug("rle_encode returned CRC: %08X\n", l_outer_crc);
 	if (res < 0) {
 		color_err_printf(0, "error from rle_encode");
 		exit(EXIT_FAILURE);
@@ -685,6 +689,18 @@ void compress()
 	g_in_fd = tmp_fd;
 	// rle only?
 	if (g_rleonly) {
+		// update output's file header'
+		l_fh.plain_crc = htonl(l_outer_crc);
+		res = lseek(g_out_fd, 0, SEEK_SET);
+		if (res < 0) {
+			color_err_printf(1, "carith: unable to seek output file.");
+			exit(EXIT_FAILURE);
+		}
+		res = write(g_out_fd, &l_fh, sizeof(l_fh));
+		if (res < 0) {
+			color_err_printf(1, "carith: unable to write file header to output file after compression.");
+			exit(EXIT_FAILURE);
+		}
 		// copy temp file into output
 		int readlen;
 		char tmp_buff[BUFFLEN];
@@ -826,6 +842,11 @@ compress_norle:
 		progress(l_sofar, g_in_len);
 	} while (l_eof == 0);
 	if (g_verbose) printf("\n"); // after progress meter
+
+	// replace CRC if we used RLE
+	if ((l_fh.scheme & scheme_rle) == scheme_rle) {
+		l_crc = l_outer_crc;
+	}
 
 	color_debug("input file CRC: %08X\n", l_crc);
 	l_fh.plain_crc = htonl(l_crc);
