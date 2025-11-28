@@ -52,6 +52,7 @@ typedef struct {
 	mode_t mode; // mode of original file
 	uint32_t plain_crc; // crc of plain input file
 	uint32_t total_plain_len;
+	uint32_t total_rle_len;
 	uint32_t segsize;
 } file_header;
 
@@ -251,6 +252,9 @@ void progress(uint32_t a_sofar, uint32_t a_total)
 	int i;
 	char l_txt[BUFFLEN];
 
+	if (a_sofar == 0)
+		l_lastsize = 0; // start fresh
+
 	// cover over our previous message
 	for (i = 0; i < l_lastsize; ++i)
 		printf("\b");
@@ -357,7 +361,7 @@ void verify_file_argument()
 	color_debug("opened input file %s, size %ld\n", g_in, g_in_len);
 }
 
-int rle_encode(int a_in_fd, int a_out_fd, uint32_t *a_crc_in)
+int rle_encode(int a_in_fd, int a_out_fd, uint32_t *a_crc_in, size_t a_total)
 {
 	uint8_t RLE_ESCAPE = 0x55;
 	const uint8_t RLE_INCREMENT = 0x3B;
@@ -366,6 +370,8 @@ int rle_encode(int a_in_fd, int a_out_fd, uint32_t *a_crc_in)
 	size_t i;
 	uint8_t l_new, l_old = 0, l_count = 0;
 	int l_clear = 1; // set this to indicate l_old is empty
+	size_t l_sofar = 0;
+	progress(l_sofar, g_in_len);
 
 	// sliding window RLE
 	do {
@@ -377,10 +383,14 @@ int rle_encode(int a_in_fd, int a_out_fd, uint32_t *a_crc_in)
 		if (res != 1)
 			return -1;
 		*a_crc_in = get_buffer_crc(*a_crc_in, &l_new, 1);
+		l_sofar++;
+		if ((l_sofar % 262144) == 0) {
+			progress(l_sofar, a_total);
+		}
 
 		// did we encounter an escape? If so, flush the window then double it up, then rotate the escape
 		if (l_new == RLE_ESCAPE) {
-			if (l_clear == 0) {
+			if (l_clear == 0) { // if we have an l_old value trucking along with us
 				if (l_count > 0) {
 					// if we've repeated fewer than 4 times, just write the bytes themselves
 					if (l_count < 3) {
@@ -390,6 +400,15 @@ int rle_encode(int a_in_fd, int a_out_fd, uint32_t *a_crc_in)
 								return -1;
 						}
 						l_count = 0;
+						// after writing out our repeated l_olds, write out double escape then clear
+						res = write(a_out_fd, &RLE_ESCAPE, 1);
+						if (res != 1)
+							return -1;
+						res = write(a_out_fd, &RLE_ESCAPE, 1);
+						if (res != 1)
+							return -1;
+						RLE_ESCAPE += RLE_INCREMENT;
+						l_clear = 1;
 					} else {
 						// write out compound set
 						res = write(a_out_fd, &RLE_ESCAPE, 1);
@@ -402,24 +421,38 @@ int rle_encode(int a_in_fd, int a_out_fd, uint32_t *a_crc_in)
 						res = write(a_out_fd, &lc1, 1);
 						if (res != 1)
 							return -1;
-						l_count = 0;
 						RLE_ESCAPE += RLE_INCREMENT;
+						l_count = 0;
+						// we rotated our escape after writing our run, so l_new is no longer the escape character, so just write it out
+						res = write(a_out_fd, &l_new, 1);
+						if (res != 1)
+							return -1;
+						l_clear = 1;
 					}
 				} else {
-					// weren't counting when we encountered escape, so just write out l_old
+					// weren't counting when we encountered escape, so write out l_old, double escape, then start fresh
 					res = write(a_out_fd, &l_old, 1);
 					if (res != 1)
 						return -1;
+					res = write(a_out_fd, &RLE_ESCAPE, 1);
+					if (res != 1)
+						return -1;
+					res = write(a_out_fd, &RLE_ESCAPE, 1);
+					if (res != 1)
+						return -1;
+					RLE_ESCAPE += RLE_INCREMENT;
+					l_clear = 1;
 				}
+			} else { // no l_old value, encountered a fresh escape character
+				res = write(a_out_fd, &RLE_ESCAPE, 1);
+				if (res != 1)
+					return -1;
+				res = write(a_out_fd, &RLE_ESCAPE, 1);
+				if (res != 1)
+					return -1;
+				RLE_ESCAPE += RLE_INCREMENT;
+				l_clear = 1;
 			}
-			res = write(a_out_fd, &RLE_ESCAPE, 1);
-			if (res != 1)
-				return -1;
-			res = write(a_out_fd, &RLE_ESCAPE, 1);
-			if (res != 1)
-				return -1;
-			RLE_ESCAPE += RLE_INCREMENT;
-			l_clear = 1;
 			continue;
 		}
 
@@ -448,7 +481,7 @@ int rle_encode(int a_in_fd, int a_out_fd, uint32_t *a_crc_in)
 				l_count = 0;
 				l_clear = 1;
 			}
-		} else {
+		} else { // l_old and l_new differ
 			if (l_count > 0) {
 				// if we've repeated fewer than 4 times, just write the bytes themselves
 				if (l_count < 3) {
@@ -472,6 +505,20 @@ int rle_encode(int a_in_fd, int a_out_fd, uint32_t *a_crc_in)
 						return -1;
 					RLE_ESCAPE += RLE_INCREMENT;
 					l_count = 0;
+					// edge case: is l_new now the escape character after above compound set write?
+					// write out l_new twice, increment the escape again, and then start fresh
+					if (l_new == RLE_ESCAPE) {
+						res = write(a_out_fd, &RLE_ESCAPE, 1);
+						if (res != 1)
+							return -1;
+						res = write(a_out_fd, &RLE_ESCAPE, 1);
+						if (res != 1)
+							return -1;
+						RLE_ESCAPE += RLE_INCREMENT;
+						l_clear = 1;
+						continue;
+					}
+
 				}
 			} else {
 				// got different byte, but no repeat, so write out old
@@ -514,16 +561,20 @@ int rle_encode(int a_in_fd, int a_out_fd, uint32_t *a_crc_in)
 				return -1;
 		}
 	}
+	// don't leave progress bar hanging
+	progress(l_sofar, a_total);
 	return 0;
 }
 
-int rle_decode(int a_in_fd, int a_out_fd)
+int rle_decode(int a_in_fd, int a_out_fd, uint32_t *a_out_crc, size_t a_total)
 {
 	uint8_t RLE_ESCAPE = 0x55;
 	const uint8_t RLE_INCREMENT = 0x3B;
 	int res;
 	int l_eof = 0;
 	char repbuffer[256];
+	size_t l_sofar = 0;
+	progress(l_sofar, a_total);
 
 	uint64_t l_repeat = 0;
 	enum { COLLECTING, FOUND_ESCAPE, FOUND_CHAR } l_state = COLLECTING;
@@ -546,6 +597,11 @@ int rle_decode(int a_in_fd, int a_out_fd)
 					res = write(a_out_fd, &l_new, 1);
 					if (res != 1)
 						return -1;
+					*a_out_crc = get_buffer_crc(*a_out_crc, &l_new, 1);
+					l_sofar++;
+					if ((l_sofar % 65536) == 0) {
+						progress(l_sofar, a_total);
+					}
 				}
 				break;
 			case FOUND_ESCAPE:
@@ -554,6 +610,11 @@ int rle_decode(int a_in_fd, int a_out_fd)
 					res = write(a_out_fd, &l_new, 1);
 					if (res != 1)
 						return -1;
+					*a_out_crc = get_buffer_crc(*a_out_crc, &l_new, 1);
+					l_sofar++;
+					if ((l_sofar % 65536) == 0) {
+						progress(l_sofar, a_total);
+					}
 					RLE_ESCAPE += RLE_INCREMENT;
 					l_state = COLLECTING;
 				} else {
@@ -568,6 +629,11 @@ int rle_decode(int a_in_fd, int a_out_fd)
 					res = write(a_out_fd, repbuffer, l_new);
 					if (res != l_new)
 						return -1;
+					*a_out_crc = get_buffer_crc(*a_out_crc, (uint8_t *)repbuffer, l_new);
+					l_sofar += l_new;
+					if ((l_sofar % 65536) == 0) {
+						progress(l_sofar, a_total);
+					}
 					RLE_ESCAPE += RLE_INCREMENT;
 					l_state = COLLECTING;
 				} else {
@@ -578,6 +644,7 @@ int rle_decode(int a_in_fd, int a_out_fd)
 				break;
 		}
 	} while (l_eof == 0);
+	progress(l_sofar, a_total);
 	return 0;
 }
 
@@ -627,6 +694,7 @@ void compress()
 	int l_docontinue = 0;
 	uint32_t l_block_ctr = 0;
 	file_header l_fh;
+	size_t l_sofar;
 
 	// set output name
 	g_out[0] = 0;
@@ -664,7 +732,7 @@ void compress()
 
 	uint32_t l_outer_crc = 0; // need to replace the CRC since we are handling the input file now
 	// RLE encode input file in place in directory
-	if (g_verbose) color_printf("*acarith:*d RLE encoding input file...\n");
+	if (g_verbose) color_printf("*acarith:*d RLE encoding *h%s*d ... ", g_in);
 	char l_template[32];
 	strcpy(l_template, "carithtmpXXXXXX");
 	int tmp_fd = mkstemp(l_template);
@@ -673,7 +741,8 @@ void compress()
 		exit(EXIT_FAILURE);
 	}
 	color_debug("temporary file %s\n", l_template);
-	res = rle_encode(g_in_fd, tmp_fd, &l_outer_crc);
+	res = rle_encode(g_in_fd, tmp_fd, &l_outer_crc, g_in_len);
+	if (g_verbose) printf("\n");
 	color_debug("rle_encode returned CRC: %08X\n", l_outer_crc);
 	if (res < 0) {
 		color_err_printf(0, "error from rle_encode");
@@ -687,6 +756,14 @@ void compress()
 	close(g_in_fd);
 	// replace g_in_fd with our temporary file, rewound to zero
 	g_in_fd = tmp_fd;
+	// replace g_in_len with the length of our temporary file
+	struct stat l_temp_stat;
+	res = stat (l_template, &l_temp_stat);
+	if (res < 0) {
+		color_err_printf(1, "unable to stat temp file");
+	}
+	g_in_len = l_temp_stat.st_size;
+	l_fh.total_rle_len = htonl(g_in_len);
 	// rle only?
 	if (g_rleonly) {
 		// update output's file header'
@@ -738,7 +815,7 @@ compress_norle:
 
 	uint32_t l_crc = 0;
 	uint32_t l_block_crc = 0;
-	size_t l_sofar = 0;
+	l_sofar = 0;
 	progress(l_sofar, g_in_len);
 
 	do {
@@ -927,13 +1004,16 @@ void extract()
 			color_printf("*acarith:*d --- block size:           *h%d*d\n", ntohl(l_fh.segsize));
 			color_printf("*acarith:*d --- original file CRC:    *h%08X*d\n", ntohl(l_fh.plain_crc));
 			color_printf("*acarith:*d --- compression chain:    ");
-			if ((l_fh.scheme & 0x40) == 0x40)
+			if ((l_fh.scheme & scheme_rle) == scheme_rle)
 				color_printf("*hRLE *d");
-			if ((l_fh.scheme & 0x20) == 0x20)
+			if ((l_fh.scheme & scheme_lzw) == scheme_lzw)
 				color_printf("*hLZW *d");
-			if ((l_fh.scheme & 0x80) == 0x80)
+			if ((l_fh.scheme & scheme_ac) == scheme_ac)
 				color_printf("*hAC *d");
 			printf("\n");
+			if ((l_fh.scheme & scheme_rle) == scheme_rle) {
+				color_printf("*acarith:*d --- RLE intermediate:     *h%ld*d\n", ntohl(l_fh.total_rle_len));
+			}
 		}
 	} else {
 		color_err_printf(0, "carith: file is not a carith archive.");
@@ -1011,7 +1091,13 @@ void extract()
 	}
 
 	size_t l_sofar = 0;
-	progress(l_sofar, ntohl(l_fh.total_plain_len));
+	size_t l_ac_target;
+	if ((l_fh.scheme & scheme_rle) == scheme_rle) {
+		l_ac_target = ntohl(l_fh.total_rle_len);
+	} else {
+		l_ac_target = ntohl(l_fh.total_plain_len);
+	}
+	progress(l_sofar, l_ac_target);
 
 	do {
 		g_tally = 0;
@@ -1117,16 +1203,10 @@ void extract()
 			}
 			l_sofar += ctx[j].decomp_len;
 		}
-		progress(l_sofar, ntohl(l_fh.total_plain_len));
+		progress(l_sofar, l_ac_target);
 	} while (l_eof == 0);
 
 	if (g_verbose) printf("\n");
-	color_debug("output file CRC: %08X\n", l_crc);
-	if (l_crc != htonl(l_fh.plain_crc)) {
-		color_printf("*acarith:*d *eCRC mismatch*d, expected *h%08X*d but got *h%08X*d.\n", htonl(l_fh.plain_crc), l_crc);
-	} else {
-		if (g_verbose) color_printf("*acarith:*d CRC *hOK*d (*h%08X*d)\n", l_crc);
-	}
 
 	color_debug("joining threads...\n");
 	// join threads
@@ -1150,7 +1230,7 @@ extract_skipac:
 		// AC only, so skip RLE decode
 		goto extract_skiprle;
 	}
-	color_printf("*acarith:*d RLE decoding output...\n");
+	if (g_verbose) color_printf("*acarith:*d RLE decoding output file *h%s*d ... ", g_out);
 	// rewind outfile
 	res = lseek(g_out_fd, 0, SEEK_SET);
 	if (res < 0) {
@@ -1165,22 +1245,25 @@ extract_skipac:
 		exit(EXIT_FAILURE);
 	}
 	color_debug("temporary file %s\n", l_template);
+	uint32_t l_outer_crc = 0;
 	if ((l_fh.scheme & 0x80) == 0) {
 		// no AC, so read right from the input file
 		color_debug("rle_decode from g_in_fd to tmp_fd");
-		res = rle_decode(g_in_fd, tmp_fd);
+		res = rle_decode(g_in_fd, tmp_fd, &l_outer_crc, htonl(l_fh.total_plain_len));
 		if (res < 0) {
 			color_err_printf(0, "error from rle_decode");
 			exit(EXIT_FAILURE);
 		}
 	} else {
 		color_debug("rle_decode from g_out_fd to tmp_fd");
-		res = rle_decode(g_out_fd, tmp_fd);
+		res = rle_decode(g_out_fd, tmp_fd, &l_outer_crc, htonl(l_fh.total_plain_len));
 		if (res < 0) {
 			color_err_printf(0, "error from rle_decode");
 			exit(EXIT_FAILURE);
 		}
 	}
+	if (g_verbose) printf("\n");
+	l_crc = l_outer_crc;
 	close(g_out_fd);
 	unlink(g_out);
 	// rewind temp file
@@ -1216,7 +1299,14 @@ extract_skipac:
 
 extract_skiprle:
 
-	if (g_keep == 0) {
+	color_debug("output file CRC: %08X\n", l_crc);
+	if (l_crc != htonl(l_fh.plain_crc)) {
+		color_printf("*acarith:*d *eCRC mismatch*d, expected *h%08X*d but got *h%08X*d.\n", htonl(l_fh.plain_crc), l_crc);
+	} else {
+		if (g_verbose) color_printf("*acarith:*d CRC *hOK*d (*h%08X*d)\n", l_crc);
+	}
+
+if (g_keep == 0) {
 		// unlink g_in
 		unlink(g_in);
 	}
