@@ -572,11 +572,15 @@ void compress()
 	color_debug("input file CRC: %08X\n", l_crc);
 	l_fh.plain_crc = htonl(l_crc);
 
+	// user warnings
+	int l_warn_norle = 0;
+	int l_warn_rleonly = 0;
+	int l_warn_aconly = 0;
 	// check total_rle_len, is it sane?
+	if (l_fh.total_rle_len > g_in_len)
+		l_warn_norle = 1;
+
 	if (g_verbose) {
-		if (l_fh.total_rle_len > g_in_len) {
-			color_printf("*acarith:*d *ewarning:*d RLE encoding caused file size to bloom from *h%ld*d to *h%ld*d.\n*acarith:*d use *h--norle*d switch to get better compression ratio.\n", g_in_len, l_fh.total_rle_len);
-		}
 	}
 	l_fh.total_rle_len = htonl(l_fh.total_rle_len);
 
@@ -598,12 +602,27 @@ void compress()
 		exit(EXIT_FAILURE);
 	}
 
-	// did AC encoding increase the size of the file?
+	// did AC encoding with RLE increase the size of the file?
 	size_t l_complen = l_stat.st_size - sizeof(l_fh); // all the crap past the file header
+	if (((l_fh.scheme & 0xc0) == 0xc0) && (l_complen > ntohl(l_fh.total_rle_len)))
+		l_warn_rleonly = 1;
+	// did AC encoding by itself increase the size of the file?
+	if (((l_fh.scheme & 0xc0) == scheme_ac) && (l_stat.st_size > g_in_len))
+		l_warn_aconly = 1;
+
 	if (g_verbose) {
-		if ((l_fh.scheme & 0xc0) == 0xc0) { // if RLE and AC was used,
-			if (l_complen > ntohl(l_fh.total_rle_len)) { // warn user that ditching AC will mean a smaller file
+		if (l_warn_norle && l_warn_rleonly) {
+			// can't advise the user to use both switches!
+			color_printf("*acarith:*d *ewarning:*d both RLE encoding and arithmetic coding caused file size to increase.\n*acarith:*d file *h%s*d can not be compressed efficiently with *acarith*d.\n", g_in);
+		} else {
+			if (l_warn_norle) {
+				color_printf("*acarith:*d *ewarning:*d RLE encoding caused file size to bloom from *h%ld*d to *h%ld*d.\n*acarith:*d use *h--norle*d switch to get better compression ratio.\n", g_in_len, ntohl(l_fh.total_rle_len));
+			}
+			if (l_warn_rleonly) { // warn user that ditching AC will mean a smaller file
 				color_printf("*acarith:*d *ewarning:*d arithmetic compression caused RLE output to bloom from *h%ld*d to final size of *h%ld*d.\n*acarith:*d use *h--rleonly*d switch to get better compression ratio.\n", ntohl(l_fh.total_rle_len), l_complen);
+			}
+			if (l_warn_aconly) { // warn user that AC by itself isn't cutting it
+				color_printf("*acarith:*d *ewarning:*d arithmetic compression by itself caused file size to bloom from *h%ld*d to *h%ld*d.\n*acarith:*d use RLE to possibly get better compression ratio.\n", g_in_len, l_stat.st_size);
 			}
 		}
 	}
