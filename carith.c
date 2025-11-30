@@ -414,6 +414,8 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
     uint8_t *ac_source = ctx->plain;
     size_t ac_source_size = ctx->plain_len;
 
+    ctx->rle_intermediate = 0; // for AC only operation, will be changed if RLE is on
+
 //    // sanity check
 //    uint8_t sanity[1048576];
 //    size_t sanity_count;
