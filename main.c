@@ -580,8 +580,6 @@ void compress()
 	if (l_fh.total_rle_len > g_in_len)
 		l_warn_norle = 1;
 
-	if (g_verbose) {
-	}
 	l_fh.total_rle_len = htonl(l_fh.total_rle_len);
 
 	// seek output back and write out updated file header
