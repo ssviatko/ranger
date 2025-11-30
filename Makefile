@@ -17,7 +17,11 @@ TEST_TARGET_OBJS = algo_test.o
 RLEINT_TARGET = rleint
 RLEINT_TARGET_OBJS = rleint.o carith.o cbit.o
 
-all: $(TARGET) $(TEST_TARGET) $(RLEINT_TARGET)
+all: command test
+
+command: $(TARGET)
+
+test: $(TEST_TARGET) $(RLEINT_TARGET)
 
 $(TARGET): $(TARGET_OBJS)
 
