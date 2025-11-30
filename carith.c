@@ -390,18 +390,18 @@ carith_error_t carith_free_ctx(carith_comp_ctx *ctx)
  * @brief Compress plain buffer into comp buffer
  */
 
-void ccct_print_hex(uint8_t *a_buffer, size_t a_len)
-{
-    unsigned int g_col = 180;
-    unsigned int i;
-    unsigned int l_bytes_to_print = (g_col / 48) * 16;
-    for (i = 0; i < a_len; ++i) {
-        if (i % l_bytes_to_print == 0)
-            printf("\n");
-        printf("%02X ", a_buffer[i]);
-    }
-    printf("\n");
-}
+// void ccct_print_hex(uint8_t *a_buffer, size_t a_len)
+// {
+//     unsigned int g_col = 180;
+//     unsigned int i;
+//     unsigned int l_bytes_to_print = (g_col / 48) * 16;
+//     for (i = 0; i < a_len; ++i) {
+//         if (i % l_bytes_to_print == 0)
+//             printf("\n");
+//         printf("%02X ", a_buffer[i]);
+//     }
+//     printf("\n");
+// }
 
 carith_error_t carith_compress(carith_comp_ctx *ctx)
 {
