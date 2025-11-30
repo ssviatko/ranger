@@ -498,8 +498,8 @@ void compress()
 			// write rle_intermediate to file as network byte order uint32_t
 			uint32_t l_total = ctx[j].rle_intermediate;
 			color_debug("block %ld writing rle_intermediate %ld\n", j, l_total);
-			l_total = htonl(l_total);
 			l_fh.total_rle_len += l_total;
+			l_total = htonl(l_total);
 			res = write(g_out_fd, &l_total, sizeof(l_total));
 			if (res < 0) {
 				color_err_printf(1, "carith: unable to write to output file.");
@@ -571,6 +571,16 @@ void compress()
 
 	color_debug("input file CRC: %08X\n", l_crc);
 	l_fh.plain_crc = htonl(l_crc);
+
+	// check total_rle_len, is it sane?
+	if (g_verbose) {
+		if (l_fh.total_rle_len > g_in_len) {
+			color_printf("*acarith:*d *ewarning:*d RLE encoding caused file size to bloom from *h%ld*d to *h%ld*d.\n*acarith:*d use *h--norle*d switch to get better compression ratio.\n", g_in_len, l_fh.total_rle_len);
+		}
+	}
+	l_fh.total_rle_len = htonl(l_fh.total_rle_len);
+
+	// seek output back and write out updated file header
 	res = lseek(g_out_fd, 0, SEEK_SET);
 	if (res < 0) {
 		color_err_printf(1, "carith: unable to seek output file.");
@@ -586,6 +596,16 @@ void compress()
 	if (res < 0) {
 		color_err_printf(1, "carith: unable to stat output file");
 		exit(EXIT_FAILURE);
+	}
+
+	// did AC encoding increase the size of the file?
+	size_t l_complen = l_stat.st_size - sizeof(l_fh); // all the crap past the file header
+	if (g_verbose) {
+		if ((l_fh.scheme & 0xc0) == 0xc0) { // if RLE and AC was used,
+			if (l_complen > ntohl(l_fh.total_rle_len)) { // warn user that ditching AC will mean a smaller file
+				color_printf("*acarith:*d *ewarning:*d arithmetic compression caused RLE output to bloom from *h%ld*d to final size of *h%ld*d.\n*acarith:*d use *h--rleonly*d switch to get better compression ratio.\n", ntohl(l_fh.total_rle_len), l_complen);
+			}
+		}
 	}
 	if (g_verbose) color_printf("*acarith:*d compressed *h%s*d into *h%s*d (ratio *h%3.5f%%*d)\n", g_in, g_out, (float)(l_stat.st_size) / (float)(ntohl(l_fh.total_plain_len)) * 100.0);
 
@@ -873,7 +893,7 @@ void extract()
 		if (g_verbose) color_printf("*acarith:*d CRC *hOK*d (*h%08X*d)\n", l_crc);
 	}
 
-if (g_keep == 0) {
+	if (g_keep == 0) {
 		// unlink g_in
 		unlink(g_in);
 	}
