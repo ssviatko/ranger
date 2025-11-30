@@ -41,11 +41,6 @@ char g_dmbuff[4];
 
 uint16_t g_cookie = 0xd5aa;
 
-// scheme bits - order of operations: RLE, then LZW, then AC.
-const uint8_t scheme_ac = 0x80;
-const uint8_t scheme_rle = 0x40;
-const uint8_t scheme_lzw = 0x20;
-
 typedef struct {
 	uint16_t cookie; // network byte order
 	uint8_t scheme;
@@ -836,6 +831,7 @@ compress_norle:
 			}
 			// compute crc on input file here
 			ctx[i].plain_len = res;
+			ctx[i].scheme = l_fh.scheme;
 			l_sofar += res;
 			l_crc = get_buffer_crc(l_crc, ctx[i].plain, ctx[i].plain_len);
 			l_block_crc = get_buffer_crc(0, ctx[i].plain, ctx[i].plain_len);
@@ -1167,6 +1163,7 @@ void extract()
 			}
 
 			// populate a thread and signal it
+			ctx[i].scheme = l_fh.scheme;
 			pthread_mutex_lock(&twa[i].sig_mtx);
 			twa[i].cur_block = l_block_ctr;
 			twa[i].sigflag = 1;

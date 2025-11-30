@@ -14,8 +14,10 @@ TARGET = carith
 TARGET_OBJS = main.o carith.o cbit.o
 TEST_TARGET = algo_test
 TEST_TARGET_OBJS = algo_test.o
+RLEINT_TARGET = rleint
+RLEINT_TARGET_OBJS = rleint.o carith.o cbit.o
 
-all: $(TARGET) $(TEST_TARGET)
+all: $(TARGET) $(TEST_TARGET) $(RLEINT_TARGET)
 
 $(TARGET): $(TARGET_OBJS)
 
@@ -26,6 +28,10 @@ $(TARGET): $(TARGET_OBJS)
 $(TEST_TARGET): $(TEST_TARGET_OBJS)
 
 	$(LD) $(TEST_TARGET_OBJS) -o $(TEST_TARGET) $(LDFLAGS)
+
+$(RLEINT_TARGET): $(RLEINT_TARGET_OBJS)
+
+	$(LD) $(RLEINT_TARGET_OBJS) -o $(RLEINT_TARGET) $(LDFLAGS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $<
@@ -38,3 +44,4 @@ clean:
 	rm -f *~
 	rm -f $(TARGET)
 	rm -f $(TEST_TARGET)
+	rm -f $(RLEINT_TARGET)
