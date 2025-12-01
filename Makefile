@@ -16,12 +16,14 @@ TEST_TARGET = algo_test
 TEST_TARGET_OBJS = algo_test.o
 RLEINT_TARGET = rleint
 RLEINT_TARGET_OBJS = rleint.o rle.o carith.o cbit.o
+LZSS_TEST_TARGET = lzss
+LZSS_TEST_TARGET_OBJS = lzss_test.o
 
 all: command test
 
 command: $(TARGET)
 
-test: $(TEST_TARGET) $(RLEINT_TARGET)
+test: $(TEST_TARGET) $(RLEINT_TARGET) $(LZSS_TEST_TARGET)
 
 $(TARGET): $(TARGET_OBJS)
 
@@ -36,6 +38,10 @@ $(TEST_TARGET): $(TEST_TARGET_OBJS)
 $(RLEINT_TARGET): $(RLEINT_TARGET_OBJS)
 
 	$(LD) $(RLEINT_TARGET_OBJS) -o $(RLEINT_TARGET) $(LDFLAGS)
+
+$(LZSS_TEST_TARGET): $(LZSS_TEST_TARGET_OBJS)
+
+	$(LD) $(LZSS_TEST_TARGET_OBJS) -o $(LZSS_TEST_TARGET) $(LDFLAGS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $<
