@@ -49,6 +49,7 @@ extern "C" {
 #include <limits.h>
 
 #include "cbit.h"
+#include "rle.h"
 
 typedef struct {
     uint64_t            count_base;       ///< Running tally of counts so far in the table

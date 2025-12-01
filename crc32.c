@@ -26,7 +26,7 @@
  *
  * ssviatko@gmail.com
  *
- * @file crc32.h
+ * @file crc32.c
  * @brief CRC32 API
  *
  * Computes a rolling CRC32 on a buffer.

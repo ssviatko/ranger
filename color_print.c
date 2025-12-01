@@ -26,7 +26,7 @@
  *
  * ssviatko@gmail.com
  *
- * @file color_print.h
+ * @file color_print.c
  * @brief C Terminal Color Printing API
  *
  * Extends printf and fprintf to enable color ANSI printing to the terminal.

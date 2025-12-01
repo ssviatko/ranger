@@ -26,7 +26,7 @@
  *
  * ssviatko@gmail.com
  *
- * @file cbit.h
+ * @file cbit.c
  * @brief C Bit Read/Write API
  *
  * Enables the reading/writing of individual bits or sequences of bits to a
