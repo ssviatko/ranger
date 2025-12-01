@@ -14,6 +14,7 @@
 #include <pthread.h>
 
 #include "carith.h"
+#include "color_print.h"
 
 #pragma pack(1)
 
@@ -51,22 +52,11 @@ typedef struct {
 	uint32_t segsize;
 } file_header;
 
-/* Block format:
- *
- * uint24_t block comp_len (length on disk)
- * uint24_t block plain_len
- * frequency table
- * token table
- *
- * These are read/written manually and are not represented by a struct.
- */
-
 // concurrency
 int g_threads = 8; // default thread count
 pthread_mutex_t g_tally_mtx;
 pthread_cond_t g_tally_cond;
 int g_tally = 0;
-pthread_mutex_t g_debug_mtx; // protect debug messages in multithreaded environment
 
 typedef struct {
 	pthread_t thread;
@@ -110,123 +100,6 @@ struct option g_options[] = {
 // color suport
 int g_nocolor = 0;
 
-#define CCCT_COLOR_HEADING   "\033[32m"          ///< Heading color
-#define CCCT_COLOR_ERROR     "\033[91m"          ///< For error messages
-#define CCCT_COLOR_HIGHLIGHT "\033[92m"          ///< Extra bright for highlights
-#define CCCT_COLOR_BULLET    "\033[93m"          ///< Outstanding messages
-#define CCCT_COLOR_DEFAULT   "\033[39m\033[49m"  ///< Return to default terminal color
-#define CCCT_COLOR_DEBUG     "\033[33m"			 ///< Debug messages
-
-void color_printf(const char *format, ...)
-{
-	char edited_format[BUFFLEN];
-	char c;
-	size_t i = 0, j = 0;
-	enum { COLLECT, FINDSTAR } state = COLLECT;
-
-	while (i < strlen(format)) {
-		c = format[i];
-		if (state == COLLECT) {
-			if (c == '*') {
-				// found first star
-				state = FINDSTAR;
-			} else {
-				edited_format[j++] = c;
-			}
-			++i;
-			continue;
-		} else if (state == FINDSTAR) {
-			if (c == '*') {
-				// double star
-				edited_format[j++] = '*';
-			} else if (c == 'h') {
-				// output highlight
-				if (!g_nocolor) {
-					edited_format[j] = 0;
-					strcat(edited_format, CCCT_COLOR_HIGHLIGHT);
-					j += strlen(CCCT_COLOR_HIGHLIGHT);
-				}
-			} else if (c == 'a') {
-				if (!g_nocolor) {
-					edited_format[j] = 0;
-					strcat(edited_format, CCCT_COLOR_HEADING);
-					j += strlen(CCCT_COLOR_HEADING);
-				}
-			} else if (c == 'b') {
-				if (!g_nocolor) {
-					edited_format[j] = 0;
-					strcat(edited_format, CCCT_COLOR_BULLET);
-					j += strlen(CCCT_COLOR_BULLET);
-				}
-			} else if (c == 'e') {
-				if (!g_nocolor) {
-					edited_format[j] = 0;
-					strcat(edited_format, CCCT_COLOR_ERROR);
-					j += strlen(CCCT_COLOR_ERROR);
-				}
-			} else if (c == 'd') {
-				if (!g_nocolor) {
-					edited_format[j] = 0;
-					strcat(edited_format, CCCT_COLOR_DEFAULT);
-					j += strlen(CCCT_COLOR_DEFAULT);
-				}
-			} else {
-				// unknown escape sequence
-				edited_format[j] = 0;
-				strcat(edited_format, "*?");
-				j += 2;
-			}
-			state = COLLECT;
-			++i;
-			continue;
-		}
-	}
-	edited_format[j] = 0;
-
-	va_list args;
-	va_start(args, format);
-	vprintf(edited_format, args);
-	va_end(args);
-}
-
-void color_err_printf(int a_strerror, const char *format, ...)
-{
-	// call this without a linefeed at the end
-	char edited_format[BUFFLEN];
-	edited_format[0] = 0;
-	if (!g_nocolor) strcat(edited_format, CCCT_COLOR_ERROR);
-	strcat(edited_format, format);
-	if (a_strerror) {
-		sprintf(edited_format + strlen(edited_format), " : %s\n", strerror(errno));
-	} else {
-		sprintf(edited_format + strlen(edited_format), "\n");
-	}
-	if (!g_nocolor) strcat(edited_format, CCCT_COLOR_DEFAULT);
-	va_list args;
-	va_start(args, format);
-	vfprintf(stderr, edited_format, args);
-	va_end(args);
-}
-
-void color_debug(const char *format, ...)
-{
-	if (g_debug == 0)
-		return; // don't print anything if debug isn't turned on
-	pthread_mutex_lock(&g_debug_mtx);
-	char edited_format[BUFFLEN];
-	edited_format[0] = 0;
-	if (!g_nocolor)
-		strcat(edited_format, CCCT_COLOR_DEBUG);
-	strcat(edited_format, format);
-	if (!g_nocolor)
-		strcat(edited_format, CCCT_COLOR_DEFAULT);
-	va_list args;
-	va_start(args, format);
-	vprintf(edited_format, args);
-	va_end(args);
-	pthread_mutex_unlock(&g_debug_mtx);
-}
-
 char *decimal_mode(mode_t a_mode)
 {
 	char u, g, o;
@@ -239,30 +112,6 @@ char *decimal_mode(mode_t a_mode)
 	g_dmbuff[2] = o;
 	g_dmbuff[3] = 0;
 	return g_dmbuff;
-}
-
-void progress(uint32_t a_sofar, uint32_t a_total)
-{
-	static size_t l_lastsize = 0;
-	int i;
-	char l_txt[BUFFLEN];
-
-	if (a_sofar == 0)
-		l_lastsize = 0; // start fresh
-
-	// cover over our previous message
-	for (i = 0; i < l_lastsize; ++i)
-		printf("\b");
-	for (i = 0; i < l_lastsize; ++i)
-		printf(" ");
-	for (i = 0; i < l_lastsize; ++i)
-		printf("\b");
-
-	// print our message to l_txt to gauge the size on screen
-	sprintf(l_txt, "(%u of %u) ", a_sofar, a_total);
-	l_lastsize = strlen(l_txt);
-	// now print it on screen in color with ansi escape codes
-	if (g_verbose) color_printf("(*h%u*d of *h%u*d) ", a_sofar, a_total);
 }
 
 uint32_t g_crc32_tab[] = {
@@ -450,7 +299,7 @@ void compress()
 	uint32_t l_crc = 0;
 	uint32_t l_block_crc = 0;
 	l_sofar = 0;
-	progress(l_sofar, g_in_len);
+	if (g_verbose) color_progress(l_sofar, g_in_len);
 
 	do {
 		g_tally = 0;
@@ -565,9 +414,9 @@ void compress()
 				exit(EXIT_FAILURE);
 			}
 		}
-		progress(l_sofar, g_in_len);
+		if (g_verbose) color_progress(l_sofar, g_in_len);
 	} while (l_eof == 0);
-	if (g_verbose) printf("\n"); // after progress meter
+	if (g_verbose) printf("\n"); // after color_progress meter
 
 	color_debug("input file CRC: %08X\n", l_crc);
 	l_fh.plain_crc = htonl(l_crc);
@@ -765,7 +614,7 @@ void extract()
 	}
 
 	size_t l_sofar = 0;
-	progress(l_sofar, ntohl(l_fh.total_plain_len));
+	if (g_verbose) color_progress(l_sofar, ntohl(l_fh.total_plain_len));
 
 	do {
 		g_tally = 0;
@@ -882,7 +731,7 @@ void extract()
 			}
 			l_sofar += ctx[j].decomp_len;
 		}
-		progress(l_sofar, ntohl(l_fh.total_plain_len));
+		if (g_verbose) color_progress(l_sofar, ntohl(l_fh.total_plain_len));
 	} while (l_eof == 0);
 
 	if (g_verbose) printf("\n");
@@ -939,7 +788,6 @@ int main(int argc, char **argv)
 	}
 
 	// initialize threaded environment
-	pthread_mutex_init(&g_debug_mtx, NULL);
 	pthread_mutex_init(&g_tally_mtx, NULL);
 	pthread_cond_init(&g_tally_cond, NULL);
 
@@ -1038,7 +886,8 @@ int main(int argc, char **argv)
 		}
 	}
 
-	setbuf(stdout, NULL); // disable buffering so we can print our ccct_progress
+	setbuf(stdout, NULL); // disable buffering so we can print our color_progress
+	color_init(g_nocolor, g_debug);
 
 	// police illogical RLE choices
 	if ((g_norle == 1) && (g_rleonly == 1)) {
@@ -1128,7 +977,7 @@ int main(int argc, char **argv)
 	}
 	pthread_cond_destroy(&g_tally_cond);
 	pthread_mutex_destroy(&g_tally_mtx);
-	pthread_mutex_destroy(&g_debug_mtx);
+	color_free();
 
 	gettimeofday(&g_end_time, NULL);
 	if (g_verbose) color_printf("*acarith:*d completed operation in *h%ld*d seconds *h%ld*d usecs.\n",
