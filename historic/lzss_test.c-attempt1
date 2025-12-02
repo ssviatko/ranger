@@ -27,66 +27,11 @@ typedef struct {
     uint16_t tokens[8];
 } token_block;
 
-uint32_t pointer_pool[WINDOW_SIZE + SEGSIZE];
-
-typedef struct {
-    uint32_t count_base; ///< Beginning of symbol's spread in pointer pool
-    uint32_t search_base; ///< This pointer moves forward as we slide the window
-    uint32_t count;
-    uint32_t next_pool_loc; ///< starts at zero, counts up to count - 1, points to next location in pointer_pool to write pointer (count_base + next_pool_loc)
-} symbol_hint_t;
-
-symbol_hint_t symbols[256];
-
-/**
- * @brief Count symbols and build pointer pool
- *
- * Call this after calling lzss_prepare_dictionary
- */
-
-void lzss_prepare_pointer_pool(uint8_t *a_in, size_t a_in_len)
-{
-    uint32_t i, j;
-    uint32_t base_tab = 0;
-
-    // zero the symbols table
-    for (i = 0; i < 256; ++i) {
-        symbols[i].count_base = 0;
-        symbols[i].search_base = 0;
-        symbols[i].count = 0;
-        symbols[i].next_pool_loc = 0;
-    }
-    // update counts for every symbol
-    for (i = seed_dictionary_start; i < WINDOW_SIZE + a_in_len; i++) {
-        symbols[a_in[i]].count++;
-    }
-    // set count_base values
-    for (i = 0; i < 256; ++i) {
-        symbols[i].count_base = base_tab;
-        symbols[i].search_base = base_tab;
-        base_tab += symbols[i].count;
-    }
-    // establish pointers
-    for (i = seed_dictionary_start; i < WINDOW_SIZE + a_in_len; i++) {
-        pointer_pool[  symbols[a_in[i]].count_base + symbols[a_in[i]].next_pool_loc++  ] = i;
-    }
-    // debug
-    for (i = 0; i < 256; ++i) {
-        if (symbols[i].count > 0) {
-            printf("sym %02X count %d search_base %d - ", i, symbols[i].count, symbols[i].search_base);
-            for (j = symbols[i].search_base; j < symbols[i].search_base + symbols[i].count; ++j) {
-                printf("%d ", pointer_pool[j]);
-            }
-            printf("\n");
-        }
-    }
-}
-
 /**
  * @brief Install seed dictionary into buffer
  */
 
-void lzss_prepare_dictionary(uint8_t *a_seed, size_t a_seed_len, uint8_t *a_in)
+void lzss_prepare_dictionary(uint8_t *a_seed, size_t a_seed_len)
 {
     // zero the dictionary space
     memset(seed_dictionary, 0, WINDOW_SIZE);
@@ -94,9 +39,7 @@ void lzss_prepare_dictionary(uint8_t *a_seed, size_t a_seed_len, uint8_t *a_in)
     memcpy(seed_dictionary + WINDOW_SIZE - a_seed_len, a_seed, a_seed_len);
     // set start pointer to first byte of seed dictionary we just copied
     seed_dictionary_start = WINDOW_SIZE - a_seed_len;
-//    printf("Copied seed_len %ld string to seed_dictionary buffer at position %d.\n", a_seed_len, seed_dictionary_start);
-    // copy seed dictionary (all 4096 bytes of it) into in buffer at zero position
-    memcpy(a_in, seed_dictionary, WINDOW_SIZE);
+    printf("Copied seed_len %ld string to seed_dictionary buffer at position %d.\n", a_seed_len, seed_dictionary_start);
 }
 
 void lzss_match(uint8_t *a_in, uint32_t a_window_back, uint32_t a_window_ptr, uint32_t a_window_ptr_limit, uint16_t *a_match_back_ptr, uint8_t *a_match_len)
@@ -188,6 +131,8 @@ void lzss_encode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
         return;
     }
 
+    // copy seed dictionary (all 4096 bytes of it) into in buffer at zero position
+    memcpy(a_in, seed_dictionary, WINDOW_SIZE);
 //    printf("lzss_encode: starting window_back %d window_ptr %d window_ptr_limit %d\n", window_back, window_ptr, window_ptr_limit);
 
     // match loop
@@ -349,7 +294,7 @@ int main(int argc, char **argv)
     const char *l_sample_seed = "the and over";
     size_t l_sample_seed_size = strlen(l_sample_seed);
     printf("sample_seed_size: %ld\n", l_sample_seed_size);
-    lzss_prepare_dictionary((uint8_t *)l_sample_seed, l_sample_seed_size, plain);
+    lzss_prepare_dictionary((uint8_t *)l_sample_seed, l_sample_seed_size);
 //    const char *l_plain = "IDKLOLthe don't and why the quick brown fox jumps over the lazy dog, which is why I am confused by this long ass string here that we are using to test the LZSS encoder. Now is the time for all good men to come to the aid of their country and to pull up their pants and stop wanking it like a lazy dog sitting on the bed all day. I hope this string is long enough to really demonsrate how cumulative encoding can help when the window is especially big. I don't see why we can't make the string even bigger, I don't know how much of a limitation Linux has on text strings.... or maybe I should say what limitations that Kate has on how many characters can fit in a single line. Let's push it to the limit and find out once and for all how many characters Kate can allow in a single line! This should be fun. So far it hasn't beeped at me or anything of the sort in order to complain about the amount of characters. I think I can keep on going and going and going until I fill up the entire 4096 byte window. WOuldn't that be amazing! Push it, push it, push it to the limit.. open up the limit, walk along the razor's edge, don't stop until the sun comes up in the morning.";
 //    memcpy(plain + WINDOW_SIZE, l_plain, strlen(l_plain));
 //    printf("window   : %s (%ld)", l_sample_seed, strlen(l_sample_seed));
@@ -370,8 +315,6 @@ int main(int argc, char **argv)
     }
     close(in_fd);
     printf("read %d bytes.\n", res);
-
-    lzss_prepare_pointer_pool(plain, res);
 
     size_t compsize;
     lzss_encode(plain, res, comp, &compsize);
