@@ -46,7 +46,7 @@ void lzss_match(uint8_t *a_in, uint32_t a_window_back, uint32_t a_window_ptr, ui
 {
     // sanity check a_window_back
     if (a_window_back > a_window_ptr - MINMATCH) {
-//        printf("lzss_match: no dictionary or dictionary too small\n");
+        printf("lzss_match: no dictionary or dictionary too small\n");
         return; // window_back nonexistant or less than MINMATCH (will only happen if we start without a seed dictionary)
     }
 
@@ -89,7 +89,7 @@ void flush_tb(token_block *a_tb, uint8_t *a_out, size_t *a_out_pos)
     if (a_tb->numflags < 8)
         a_tb->flags >>= (8 - a_tb->numflags); // scoot them over so flag #0 starts at bit position 0
 
-//    printf("flush_tb: flags %02X a_out_pos %ld tokens %d\n", a_tb->flags, *a_out_pos, a_tb->numflags);
+    printf("flush_tb: flags %02X a_out_pos %ld tokens %d\n", a_tb->flags, *a_out_pos, a_tb->numflags);
     a_out[WINDOW_SIZE + (*a_out_pos)++] = a_tb->flags;
     for (i = 0; i < a_tb->numflags; ++i) {
         if ((a_tb->flags & 0x01) == 0x01) {
@@ -133,7 +133,7 @@ void lzss_encode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
 
     // copy seed dictionary (all 4096 bytes of it) into in buffer at zero position
     memcpy(a_in, seed_dictionary, WINDOW_SIZE);
-//    printf("lzss_encode: starting window_back %d window_ptr %d window_ptr_limit %d\n", window_back, window_ptr, window_ptr_limit);
+    printf("lzss_encode: starting window_back %d window_ptr %d window_ptr_limit %d\n", window_back, window_ptr, window_ptr_limit);
 
     // match loop
     do {
@@ -146,18 +146,18 @@ void lzss_encode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
             if (match_len == 0) match_len = 1; // no match, still want to write at least 1 byte
             for (i = 0; i < match_len; ++i) {
                 if (found_first_match == 0) {
-//                    char c = 0x20;
-//                    if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
-//                        c = a_in[window_ptr];
-//                    printf("byte copy  output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
+                    char c = 0x20;
+                    if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
+                        c = a_in[window_ptr];
+                    printf("byte copy  output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
                     a_out[WINDOW_SIZE + out_ptr] = a_in[window_ptr];
                     initial_copy++;
                     out_ptr++;
                 } else {
-//                    char c = 0x20;
-//                    if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
-//                        c = a_in[window_ptr];
-//                    printf("byte token output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
+                    char c = 0x20;
+                    if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
+                        c = a_in[window_ptr];
+                    printf("byte token output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
                     tb.flags >>= 1;
                     tb.tokens[tb.numflags] = a_in[window_ptr];
                     tb.numflags++;
@@ -172,13 +172,13 @@ void lzss_encode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
             }
         } else {
             if (found_first_match == 0) found_first_match++;
-//            char cc[20]; memset(cc, 0, 20);
-//            strncpy(cc, (char *)(a_in + window_ptr - match_back_ptr), match_len);
-//            for (i = 0; i < strlen(cc); ++i) {
-//                if (cc[i] < 0x20) cc[i] = '.';
-//                if (cc[i] > 0x7f) cc[i] = '.';
-//            }
-//            printf("match token output: %ld - <%d, %d> (%s)\n", out_ptr, match_back_ptr, match_len, cc);
+            char cc[20]; memset(cc, 0, 20);
+            strncpy(cc, (char *)(a_in + window_ptr - match_back_ptr), match_len);
+            for (i = 0; i < strlen(cc); ++i) {
+                if (cc[i] < 0x20) cc[i] = '.';
+                if (cc[i] > 0x7f) cc[i] = '.';
+            }
+            printf("match token output: %ld - <%d, %d> (%s)\n", out_ptr, match_back_ptr, match_len, cc);
             window_ptr += match_len;
             tb.flags >>= 1;
             tb.flags |= 0x80;
@@ -213,7 +213,7 @@ void lzss_decode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
     uint32_t token_count;
     memcpy(&token_count, a_in + OFFSET_TOKEN_COUNT + WINDOW_SIZE, sizeof(token_count));
     token_count = ntohl(token_count);
-//    printf("lzss_decode: token_count %d initial_copy %d\n", token_count, initial_copy);
+    printf("lzss_decode: token_count %d initial_copy %d\n", token_count, initial_copy);
 
     size_t in_ptr = OFFSET_OUTPUT_STREAM;
     size_t out_ptr = 0;
@@ -227,12 +227,12 @@ void lzss_decode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
     for (i = 0; i < initial_copy; ++i) {
         a_out[WINDOW_SIZE + out_ptr++] = a_in[WINDOW_SIZE + in_ptr++];
     }
-//    printf("lzss_decode: initial copy %d bytes in_ptr %ld out_ptr %ld\n", initial_copy, in_ptr, out_ptr);
+    printf("lzss_decode: initial copy %d bytes in_ptr %ld out_ptr %ld\n", initial_copy, in_ptr, out_ptr);
 
     // read in token_count tokens in 8 token increments
     for (i = 0; i < token_count; i += 8) {
         uint8_t flags = a_in[WINDOW_SIZE + in_ptr++];
-//        printf("lzss_decode: in_ptr %ld i %ld flags %02X\n", in_ptr, i, flags);
+        printf("lzss_decode: in_ptr %ld i %ld flags %02X\n", in_ptr, i, flags);
         for (j = 0; j < 8; ++j) {
             if ((i + j) >= token_count)
                 goto lzss_decode_done;
@@ -246,13 +246,13 @@ void lzss_decode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
                 match_len += MINMATCH;
                 memcpy(a_out + out_ptr + WINDOW_SIZE, a_out + out_ptr + WINDOW_SIZE - match_back_ptr, match_len);
                 // report
-//                char cc[20]; memset(cc, 0, 20);
-//                strncpy(cc, (char *)(a_out + out_ptr + WINDOW_SIZE - match_back_ptr), match_len);
-//                for (size_t ii = 0; ii < strlen(cc); ++ii) {
-//                    if (cc[ii] < 0x20) cc[ii] = '.';
-//                    if (cc[ii] > 0x7f) cc[ii] = '.';
-//                }
-//                printf("match token input: i %ld j %ld in_ptr %ld out_ptr %ld - <%d, %d> (%s)\n", i, j, in_ptr, out_ptr, match_back_ptr, match_len, cc);
+                char cc[20]; memset(cc, 0, 20);
+                strncpy(cc, (char *)(a_out + out_ptr + WINDOW_SIZE - match_back_ptr), match_len);
+                for (size_t ii = 0; ii < strlen(cc); ++ii) {
+                    if (cc[ii] < 0x20) cc[ii] = '.';
+                    if (cc[ii] > 0x7f) cc[ii] = '.';
+                }
+                printf("match token input: i %ld j %ld in_ptr %ld out_ptr %ld - <%d, %d> (%s)\n", i, j, in_ptr, out_ptr, match_back_ptr, match_len, cc);
                 in_ptr += 2;
                 out_ptr += match_len;
             } else {
@@ -261,10 +261,10 @@ void lzss_decode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
                 memcpy(&l_temp8, a_in + WINDOW_SIZE + in_ptr, sizeof(l_temp8));
                 memcpy(a_out + WINDOW_SIZE + out_ptr, &l_temp8, sizeof(l_temp8));
                 // report
-//                char c = 0x20;
-//                if ((l_temp8 > 0x1f) && (l_temp8 < 0x80))
-//                    c = l_temp8;
-//                printf("byte copy input: i %ld j %ld in_ptr %ld out_ptr %ld - %02X (%c)\n", i, j, in_ptr, out_ptr, l_temp8, c);
+                char c = 0x20;
+                if ((l_temp8 > 0x1f) && (l_temp8 < 0x80))
+                    c = l_temp8;
+                printf("byte copy input: i %ld j %ld in_ptr %ld out_ptr %ld - %02X (%c)\n", i, j, in_ptr, out_ptr, l_temp8, c);
                 in_ptr++;
                 out_ptr++;
             }
@@ -308,7 +308,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "open: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
-    int res = read(in_fd, plain + WINDOW_SIZE, SEGSIZE);
+    int res = read(in_fd, plain, SEGSIZE);
     if (res < 0) {
         fprintf(stderr, "read: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
@@ -318,20 +318,13 @@ int main(int argc, char **argv)
 
     size_t compsize;
     lzss_encode(plain, res, comp, &compsize);
-    printf("comp (%ld bytes) \n", compsize);
+    printf("comp (%ld bytes) ", compsize);
 //    ccct_print_hex((uint8_t *)comp + WINDOW_SIZE, compsize);
     size_t decompsize;
     lzss_decode(comp, compsize, decomp, &decompsize);
-    printf("decomp (%ld bytes ratio %3.5f) \n", decompsize, (float)compsize / (float)decompsize * 100.0);
+    printf("decomp (%ld bytes) ", decompsize);
 //    ccct_print_hex((uint8_t *)decomp + WINDOW_SIZE, decompsize);
 //    printf("P:%s\nD:%s\n", l_plain, decomp + WINDOW_SIZE);
     printf("memcmp plain/decomp: %d\n", memcmp(plain + WINDOW_SIZE, decomp + WINDOW_SIZE, decompsize));
-    for (size_t i = 0; i < decompsize; ++i) {
-        uint8_t pb = plain[WINDOW_SIZE + i];
-        uint8_t db = decomp[WINDOW_SIZE + i];
-        if (pb != db) {
-            printf("bytes at %ld differ: plain %02X decomp %02X\n", i, pb, db);
-        }
-    }
     return 0;
 }
