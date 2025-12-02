@@ -16,7 +16,7 @@ TEST_TARGET = algo_test
 TEST_TARGET_OBJS = algo_test.o
 RLEINT_TARGET = rleint
 RLEINT_TARGET_OBJS = rleint.o rle.o carith.o cbit.o
-LZSS_TEST_TARGET = lzss
+LZSS_TEST_TARGET = lzss_test
 LZSS_TEST_TARGET_OBJS = lzss_test.o
 
 all: command test
@@ -55,3 +55,4 @@ clean:
 	rm -f $(TARGET)
 	rm -f $(TEST_TARGET)
 	rm -f $(RLEINT_TARGET)
+	rm -f $(LZSS_TEST_TARGET)
