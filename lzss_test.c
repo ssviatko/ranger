@@ -373,7 +373,7 @@ void ccct_print_hex(uint8_t *a_buffer, size_t a_len)
 void process()
 {
 //    printf("LZSS tester\n");
-    const char *l_sample_seed = "the and over";
+    const char *l_sample_seed = "the and over if else printf do while goto define include size_t int unsigned uint8_t uint16_t uint32_t uint64_t for void return char short long long static typedef union enum stdio.h stdlib.h errno.h string.h iostream map queue list stack sys/fcntl.h sys/time.h unistd.h class public private protected default memcpy memset volatile pthread exit mutex condition";
     size_t l_sample_seed_size = strlen(l_sample_seed);
 //    printf("sample_seed_size: %ld\n", l_sample_seed_size);
     lzss_prepare_dictionary((uint8_t *)l_sample_seed, l_sample_seed_size, plain);
@@ -417,7 +417,7 @@ void load_file(const char *a_path)
         exit(EXIT_FAILURE);
     }
     do {
-        res = read(lf_fd, plain, SEGSIZE);
+        res = read(lf_fd, plain + WINDOW_SIZE, SEGSIZE);
         if (res < 0) {
             fprintf(stderr, "error: read %s: %s\n", a_path, strerror(errno));
             exit(EXIT_FAILURE);
@@ -483,7 +483,7 @@ int main(int argc, char **argv)
 
     chdir(argv[1]);
     listdir(".");
-    //	load_file("algo_test");
+    //load_file("/home/ssviatko/c/pi.c");
     gettimeofday(&g_end_time, NULL);
 
     printf("completed operation in %ld seconds %ld usecs.\n",
