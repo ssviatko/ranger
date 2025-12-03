@@ -6,19 +6,14 @@
 #include <sys/fcntl.h>
 #include <errno.h>
 #include <unistd.h>
-#include <sys/time.h>
-#include <limits.h>
-#include <dirent.h>
-#include <sys/stat.h>
 
-#define WINDOW_SIZE 4095
+#define WINDOW_SIZE 4096
 #define SEGSIZE 524288
 #define MINMATCH 3
 #define MAXMATCH 18
 
 static uint8_t seed_dictionary[WINDOW_SIZE];
 static uint8_t plain[WINDOW_SIZE + SEGSIZE];
-static uint32_t plain_len;
 static uint8_t comp[WINDOW_SIZE + (SEGSIZE * 3 / 2)]; // 150% guard size
 static uint8_t decomp[WINDOW_SIZE + (SEGSIZE * 3 /2)];
 static uint32_t seed_dictionary_start = WINDOW_SIZE; ///< Byte where seed data starts in seed dictionary
@@ -78,11 +73,11 @@ void lzss_prepare_pointer_pool(uint8_t *a_in, size_t a_in_len)
     // debug
     for (i = 0; i < 256; ++i) {
         if (symbols[i].count > 0) {
-//            printf("sym %02X count %d search_base %d - ", i, symbols[i].count, symbols[i].search_base);
-//            for (j = symbols[i].search_base; j < symbols[i].search_base + symbols[i].count; ++j) {
-//                printf("%d ", pointer_pool[j]);
-//            }
-//            printf("\n");
+            printf("sym %02X count %d search_base %d - ", i, symbols[i].count, symbols[i].search_base);
+            for (j = symbols[i].search_base; j < symbols[i].search_base + symbols[i].count; ++j) {
+                printf("%d ", pointer_pool[j]);
+            }
+            printf("\n");
         }
     }
 }
@@ -108,7 +103,7 @@ void lzss_match(uint8_t *a_in, uint32_t a_window_back, uint32_t a_window_ptr, ui
 {
     // sanity check a_window_back
     if (a_window_back > a_window_ptr - MINMATCH) {
-//        printf("lzss_match: no dictionary or dictionary too small\n");
+        printf("lzss_match: no dictionary or dictionary too small\n");
         return; // window_back nonexistant or less than MINMATCH (will only happen if we start without a seed dictionary)
     }
 
@@ -123,18 +118,18 @@ void lzss_match(uint8_t *a_in, uint32_t a_window_back, uint32_t a_window_ptr, ui
     uint32_t sym_count = symbols[sym].count;
     for (uint32_t offset = 0; offset < sym_count; ++offset) {
         uint32_t sym_location = pointer_pool[sym_search_base + offset];
-//        printf("lzss_match: a_window_ptr %d sym %02X pointer_pool entry %d\n", a_window_ptr, sym, sym_location);
+        printf("lzss_match: a_window_ptr %d sym %02X pointer_pool entry %d\n", a_window_ptr, sym, sym_location);
         // is sym_location behind the current window_back?
         if (sym_location < a_window_back) {
             // yes, so delete it from the count
             symbols[sym].count--;
             symbols[sym].search_base++;
-//            printf("lzss_match: omitting location from count\n");
+            printf("lzss_match: omitting location from count\n");
             continue; // recycle and search next location in pointer pool
         }
         // is sym_location past window_ptr - MINMATCH?
         if (sym_location > a_window_ptr - MINMATCH) {
-//            printf("lzss_match: pointer is after window_ptr - MINMATCH, breaking\n");
+            printf("lzss_match: pointer is after window_ptr - MINMATCH, breaking\n");
             break;
         }
         // got a pointer that is inside the window, so establish target size
@@ -145,7 +140,7 @@ void lzss_match(uint8_t *a_in, uint32_t a_window_back, uint32_t a_window_ptr, ui
         //            printf("lzss_match: max_in_window %d window_ptr_delta %d theoretical target %d match_ptr %d target %d\n", max_in_window, window_ptr_delta, (window_ptr_delta + max_in_window), match_ptr, target);
         if ((a_window_ptr + max_in_window) < target)
             target = a_window_ptr + max_in_window; // if we're not far back enough in the dictionary to match a while MAXMATCH string...
-//        printf("lzss_match: sym_location %d! searching %d to %ld...\n", sym_location, a_window_ptr, target);
+        printf("lzss_match: sym_location %d! searching %d to %ld...\n", sym_location, a_window_ptr, target);
 
         uint32_t compare_ptr;
         for (current_match = 0, compare_ptr = a_window_ptr; compare_ptr < target; ++current_match, ++compare_ptr) {
@@ -157,7 +152,7 @@ void lzss_match(uint8_t *a_in, uint32_t a_window_back, uint32_t a_window_ptr, ui
             biggest_match = current_match;
             biggest_match_ptr = sym_location;
         }
-//        printf("lzss_match: biggest match so far at %d len %d\n", biggest_match_ptr, biggest_match);
+        printf("lzss_match: biggest match so far at %d len %d\n", biggest_match_ptr, biggest_match);
         // largest match 18?
         if (biggest_match == MAXMATCH)
             break;
@@ -215,7 +210,7 @@ void lzss_encode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
         return;
     }
 
-//    printf("lzss_encode: starting window_back %d window_ptr %d window_ptr_limit %d\n", window_back, window_ptr, window_ptr_limit);
+    printf("lzss_encode: starting window_back %d window_ptr %d window_ptr_limit %d\n", window_back, window_ptr, window_ptr_limit);
 
     // match loop
     do {
@@ -231,7 +226,7 @@ void lzss_encode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
                     char c = 0x20;
                     if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
                         c = a_in[window_ptr];
-//                    printf("byte copy  output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
+                    printf("byte copy  output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
                     a_out[WINDOW_SIZE + out_ptr] = a_in[window_ptr];
                     initial_copy++;
                     out_ptr++;
@@ -239,7 +234,7 @@ void lzss_encode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
                     char c = 0x20;
                     if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
                         c = a_in[window_ptr];
-//                    printf("byte token output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
+                    printf("byte token output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
                     tb.flags >>= 1;
                     tb.tokens[tb.numflags] = a_in[window_ptr];
                     tb.numflags++;
@@ -260,7 +255,7 @@ void lzss_encode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
                 if (cc[i] < 0x20) cc[i] = '.';
                 if (cc[i] > 0x7f) cc[i] = '.';
             }
-//            printf("match token output: %ld - <%d, %d> (%s)\n", out_ptr, match_back_ptr, match_len, cc);
+            printf("match token output: %ld - <%d, %d> (%s)\n", out_ptr, match_back_ptr, match_len, cc);
             window_ptr += match_len;
             tb.flags >>= 1;
             tb.flags |= 0x80;
@@ -279,7 +274,7 @@ void lzss_encode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
     if (tb.numflags > 0) {
         flush_tb(&tb, a_out, &out_ptr);
     }
-//    printf("lzss_encode: initial_copy %d token_count %d a_in_len %ld out_ptr %ld\n", initial_copy, token_count, a_in_len, out_ptr);
+    printf("lzss_encode: initial_copy %d token_count %d a_in_len %ld out_ptr %ld\n", initial_copy, token_count, a_in_len, out_ptr);
     initial_copy = htonl(initial_copy);
     memcpy(a_out + OFFSET_INITIAL_COPY + WINDOW_SIZE, &initial_copy, sizeof(initial_copy));
     token_count = htonl(token_count);
@@ -309,7 +304,7 @@ void lzss_decode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
     for (i = 0; i < initial_copy; ++i) {
         a_out[WINDOW_SIZE + out_ptr++] = a_in[WINDOW_SIZE + in_ptr++];
     }
-//    printf("lzss_decode: initial copy %d bytes in_ptr %ld out_ptr %ld\n", initial_copy, in_ptr, out_ptr);
+    printf("lzss_decode: initial copy %d bytes in_ptr %ld out_ptr %ld\n", initial_copy, in_ptr, out_ptr);
 
     // read in token_count tokens in 8 token increments
     for (i = 0; i < token_count; i += 8) {
@@ -334,7 +329,7 @@ void lzss_decode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
                     if (cc[ii] < 0x20) cc[ii] = '.';
                     if (cc[ii] > 0x7f) cc[ii] = '.';
                 }
-//                printf("match token input: i %ld j %ld in_ptr %ld out_ptr %ld - <%d, %d> (%s)\n", i, j, in_ptr, out_ptr, match_back_ptr, match_len, cc);
+                printf("match token input: i %ld j %ld in_ptr %ld out_ptr %ld - <%d, %d> (%s)\n", i, j, in_ptr, out_ptr, match_back_ptr, match_len, cc);
                 in_ptr += 2;
                 out_ptr += match_len;
             } else {
@@ -346,7 +341,7 @@ void lzss_decode(uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_l
                 char c = 0x20;
                 if ((l_temp8 > 0x1f) && (l_temp8 < 0x80))
                     c = l_temp8;
-//                printf("byte copy input: i %ld j %ld in_ptr %ld out_ptr %ld - %02X (%c)\n", i, j, in_ptr, out_ptr, l_temp8, c);
+                printf("byte copy input: i %ld j %ld in_ptr %ld out_ptr %ld - %02X (%c)\n", i, j, in_ptr, out_ptr, l_temp8, c);
                 in_ptr++;
                 out_ptr++;
             }
@@ -370,12 +365,12 @@ void ccct_print_hex(uint8_t *a_buffer, size_t a_len)
     printf("\n");
 }
 
-void process()
+int main(int argc, char **argv)
 {
-//    printf("LZSS tester\n");
+    printf("LZSS tester\n");
     const char *l_sample_seed = "the and over";
     size_t l_sample_seed_size = strlen(l_sample_seed);
-//    printf("sample_seed_size: %ld\n", l_sample_seed_size);
+    printf("sample_seed_size: %ld\n", l_sample_seed_size);
     lzss_prepare_dictionary((uint8_t *)l_sample_seed, l_sample_seed_size, plain);
 //    const char *l_plain = "IDKLOLthe don't and why the quick brown fox jumps over the lazy dog, which is why I am confused by this long ass string here that we are using to test the LZSS encoder. Now is the time for all good men to come to the aid of their country and to pull up their pants and stop wanking it like a lazy dog sitting on the bed all day. I hope this string is long enough to really demonsrate how cumulative encoding can help when the window is especially big. I don't see why we can't make the string even bigger, I don't know how much of a limitation Linux has on text strings.... or maybe I should say what limitations that Kate has on how many characters can fit in a single line. Let's push it to the limit and find out once and for all how many characters Kate can allow in a single line! This should be fun. So far it hasn't beeped at me or anything of the sort in order to complain about the amount of characters. I think I can keep on going and going and going until I fill up the entire 4096 byte window. WOuldn't that be amazing! Push it, push it, push it to the limit.. open up the limit, walk along the razor's edge, don't stop until the sun comes up in the morning.";
 //    memcpy(plain + WINDOW_SIZE, l_plain, strlen(l_plain));
@@ -384,111 +379,38 @@ void process()
 //    printf("plaintext: %s (%ld)", l_plain, strlen(l_plain));
 //    ccct_print_hex((uint8_t *)l_plain, strlen(l_plain));
 
-    lzss_prepare_pointer_pool(plain, plain_len);
-    printf("plain_len %d ", plain_len);
+    // open file at argv[1] and copy first SEGSIZE bytes into plain buffer
+    int in_fd = open(argv[1], O_RDONLY);
+    if (in_fd < 0) {
+        fprintf(stderr, "open: %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    int res = read(in_fd, plain + WINDOW_SIZE, SEGSIZE);
+    if (res < 0) {
+        fprintf(stderr, "read: %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    close(in_fd);
+    printf("read %d bytes.\n", res);
+
+    lzss_prepare_pointer_pool(plain, res);
+
     size_t compsize;
-    lzss_encode(plain, plain_len, comp, &compsize);
-    printf("comp (%ld bytes) ", compsize);
+    lzss_encode(plain, res, comp, &compsize);
+    printf("comp (%ld bytes) \n", compsize);
 //    ccct_print_hex((uint8_t *)comp + WINDOW_SIZE, compsize);
     size_t decompsize;
     lzss_decode(comp, compsize, decomp, &decompsize);
-    printf("decomp (%ld bytes ratio %3.5f) ", decompsize, (float)compsize / (float)decompsize * 100.0);
+    printf("decomp (%ld bytes ratio %3.5f) \n", decompsize, (float)compsize / (float)decompsize * 100.0);
 //    ccct_print_hex((uint8_t *)decomp + WINDOW_SIZE, decompsize);
 //    printf("P:%s\nD:%s\n", l_plain, decomp + WINDOW_SIZE);
     printf("memcmp plain/decomp: %d\n", memcmp(plain + WINDOW_SIZE, decomp + WINDOW_SIZE, decompsize));
-//    for (size_t i = 0; i < decompsize; ++i) {
-//        uint8_t pb = plain[WINDOW_SIZE + i];
-//        uint8_t db = decomp[WINDOW_SIZE + i];
-//        if (pb != db) {
-//            printf("bytes at %ld differ: plain %02X decomp %02X\n", i, pb, db);
-//        }
-//    }
-    return;
-}
-
-void load_file(const char *a_path)
-{
-    int lf_fd;
-    int res;
-
-    lf_fd = open(a_path, O_RDONLY);
-    if (lf_fd < 0) {
-        fprintf(stderr, "error: open %s: %s\n", a_path, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-    do {
-        res = read(lf_fd, plain, SEGSIZE);
-        if (res < 0) {
-            fprintf(stderr, "error: read %s: %s\n", a_path, strerror(errno));
-            exit(EXIT_FAILURE);
-            process();
-        }
-        if (res == 0) continue;
-        printf("%s: %d bytes read  ", a_path, res);
-        plain_len = res;
-        process();
-    } while (res != 0);
-    close(lf_fd);
-}
-
-int listdir(const char *path) {
-    struct dirent *entry;
-    DIR *dp;
-    int res;
-
-    dp = opendir(path);
-    if (dp == NULL) {
-        perror("opendir");
-        exit(EXIT_FAILURE);
-    }
-
-    while ((entry = readdir(dp)) != NULL) {
-        //		printf("%s: ", entry->d_name);
-        struct stat l_stat;
-        res = stat(entry->d_name, &l_stat);
-        if (res < 0) {
-            fprintf(stderr, "error: stat on %s: %s\n", entry->d_name, strerror(errno));
-            exit(EXIT_FAILURE);
-        }
-        switch (l_stat.st_mode & S_IFMT) {
-            case S_IFBLK:  printf("block device\n");            break;
-            case S_IFCHR:  printf("character device\n");        break;
-            case S_IFDIR:
-            {
-                printf("directory\n");
-                //listdir(entry->d_name);
-            }
-            break;
-            case S_IFIFO:  printf("FIFO/pipe\n");               break;
-            case S_IFLNK:  printf("symlink\n");                 break;
-            case S_IFREG:
-            {
-                //printf("regular file\n");
-                load_file(entry->d_name);
-            }
-            break;
-            case S_IFSOCK: printf("socket\n");                  break;
-            default:       printf("unknown?\n");                break;
+    for (size_t i = 0; i < decompsize; ++i) {
+        uint8_t pb = plain[WINDOW_SIZE + i];
+        uint8_t db = decomp[WINDOW_SIZE + i];
+        if (pb != db) {
+            printf("bytes at %ld differ: plain %02X decomp %02X\n", i, pb, db);
         }
     }
-
-    closedir(dp);
-    return 0;
-}
-
-int main(int argc, char **argv)
-{
-    struct timeval g_start_time, g_end_time;
-    gettimeofday(&g_start_time, NULL);
-
-    chdir(argv[1]);
-    listdir(".");
-    //	load_file("algo_test");
-    gettimeofday(&g_end_time, NULL);
-
-    printf("completed operation in %ld seconds %ld usecs.\n",
-           g_end_time.tv_sec - g_start_time.tv_sec - ((g_end_time.tv_usec - g_start_time.tv_usec < 0) ? 1 : 0), // subtract 1 if there was a usec rollover
-           g_end_time.tv_usec - g_start_time.tv_usec + ((g_end_time.tv_usec - g_start_time.tv_usec < 0) ? 1000000 : 0)); // bump usecs by 1 million usec for rollover
-
     return 0;
 }
