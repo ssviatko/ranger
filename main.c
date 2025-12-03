@@ -467,7 +467,7 @@ void extract()
 		if (g_verbose) {
 			color_printf("*acarith:*d --- original file length: *h%ld*d\n", ntohl(l_fh.total_plain_len));
 			color_printf("*acarith:*d --- size on disk:         *h%ld*d\n", g_in_len);
-			color_printf("*acarith:*d --- compression ratio:    *h%3.5f*d\n", (float)l_in_stat.st_size / (float)ntohl(l_fh.total_plain_len) * 100.0);
+			color_printf("*acarith:*d --- compression ratio:    *h%3.5f%%*d\n", (float)l_in_stat.st_size / (float)ntohl(l_fh.total_plain_len) * 100.0);
 			color_printf("*acarith:*d --- original file mode:   *h%08lX*d (*h%s*d)\n", ntohl(l_fh.mode), decimal_mode(ntohl(l_fh.mode)));
 			color_printf("*acarith:*d --- block size:           *h%d*d\n", ntohl(l_fh.segsize));
 			color_printf("*acarith:*d --- original file CRC:    *h%08X*d\n", ntohl(l_fh.plain_crc));
