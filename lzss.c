@@ -267,6 +267,41 @@ static void flush_tb(token_block_t *a_tb, uint8_t *a_out, size_t *a_out_pos)
 //    printf("incr %ld\n", *a_out_pos);
 }
 
+/**
+ * @brief Encode an LZSS block
+ *
+ * This is the main compression routine. It takes a buffer as input which is
+ * large enough to hold a complete window (typically 4095 bytes) plus all of
+ * the input data. For example, if the user is compressing 64k of data, then
+ * the input buffer must be capable of holding 68k (the 4k window + the 64k).
+ *
+ * The window should be seeded with a pre-defined dictionary. If you have no
+ * dictionary prepared, then you should call lzss_prepare_default_dictionary
+ * before doing the symbol count with lzss_prepare_pointer_pool. Having a
+ * pre-defined seed dictionary radically improves the compression ratio on
+ * small files of 4k or less. If you choose to make your own custom dictionary,
+ * it should contain words/phrases and/or byte sequences that you imagine to
+ * be common to the data you intend to encode.
+ *
+ * The output buffer must be large enough to contain all of the compression
+ * tokens, plus the 12 bytes of informational data the compressor writes at the
+ * start of the output stream. Note that an uncompressible input stream will
+ * result in writing excessive byte tokens with very few match tokens, and
+ * with a 9/8 ratio of output data to input bytes this will result in a
+ * compression ratio of around 112.5%. For this reason the output buffer should
+ * be at least 9/8ths the size of the input data, and should include
+ * additional space as a guard on the end of that. A conservtive recommendation
+ * would be to make the output buffer 3/2 the size of the input buffer. This
+ * is the size used in the lzss_test demonstration program, and it is probably
+ * overkill, but it will guarantee that you will never overrun the buffer.
+ *
+ * @param[in] ctx The LZSS Context
+ * @param[in] a_in Pointer to buffer containing window + input data
+ * @param[in] a_in_len Length of buffer (window + input data)
+ * @param[in] a_out Pointer to buffer large enough to contain compression tokens
+ * @param[out] a_out_len The length of the output data
+ */
+
 lzss_error_t lzss_encode(lzss_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_len)
 {
     size_t i;
@@ -359,6 +394,27 @@ lzss_error_t lzss_encode(lzss_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len, uin
     *a_out_len = out_ptr;
     return LZSS_ERR_NONE;
 }
+
+/**
+ * @brief Decode an LZSS block
+ *
+ * This is the main decompression routine. It takes a buffer of compression
+ * tokens as input and a buffer large enough to hold the window and the output
+ * data. Note that the window must be seeded with the same dictionary that was
+ * used to compress the data in the lzss_encode function above.
+ *
+ * NOTE: Using the wrong dictionary will result in corrupt output data!
+ *
+ * Same advice for output buffer size in the Encode routine applies here. it
+ * is recommended that the output buffer be 3/2 the size of expected
+ * decompressed plain text plus the size of the window.
+ *
+ * @param[in] ctx The LZSS Context
+ * @param[in] a_in Pointer to buffer containing compression tokens
+ * @param[in] a_in_len Length of buffer containing compression tokens
+ * @param[in] a_out Pointer to windowed buffer with appropriate seed dictionary and space for output
+ * @param[out] a_out_len The length of the output data
+ */
 
 lzss_error_t lzss_decode(lzss_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_len)
 {

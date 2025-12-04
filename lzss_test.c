@@ -18,7 +18,7 @@
 
 static uint8_t plain[WINDOW_SIZE + SEGSIZE];
 static uint32_t plain_len;
-static uint8_t comp[WINDOW_SIZE + (SEGSIZE * 3 / 2)]; // 150% guard size
+static uint8_t comp[SEGSIZE * 3 / 2]; // 150% guard size
 static uint8_t decomp[WINDOW_SIZE + (SEGSIZE * 3 /2)];
 lzss_comp_ctx ctx;
 
