@@ -27,6 +27,7 @@ struct timeval g_start_time, g_end_time;
 int g_debug = 0;
 int g_verbose = 0;
 int g_norle = 0;
+int g_nolzss = 0;
 int g_rleonly = 0;
 uint32_t g_segsize = DEFAULT_SEGSIZE;
 enum { MODE_NONE, MODE_COMPRESS, MODE_EXTRACT, MODE_TELL } g_mode = MODE_NONE;
@@ -50,6 +51,7 @@ typedef struct {
 	uint32_t plain_crc; // crc of plain input file
 	uint32_t total_plain_len;
 	uint32_t total_rle_len;
+	uint32_t total_lzss_len;
 	uint32_t segsize;
 } file_header;
 
@@ -79,7 +81,8 @@ enum {
 	OPT_NORLE,
 	OPT_RLEONLY,
 	OPT_NOCOLOR,
-	OPT_NOKEEP
+	OPT_NOKEEP,
+	OPT_NOLZSS
 };
 
 struct option g_options[] = {
@@ -93,6 +96,7 @@ struct option g_options[] = {
 	{ "segsize", required_argument, NULL, 'g' },
 	{ "nocolor", no_argument, NULL, OPT_NOCOLOR },
 	{ "norle", no_argument, NULL, OPT_NORLE },
+	{ "nolzss", no_argument, NULL, OPT_NOLZSS },
 	{ "rleonly", no_argument, NULL, OPT_RLEONLY },
 	{ "nokeep", no_argument, NULL, OPT_NOKEEP },
 	{ NULL, 0, NULL, 0 }
@@ -211,15 +215,21 @@ void compress()
 	l_fh.mode = htonl(g_in_mode);
 	if (g_rleonly) {
 		l_fh.scheme |= scheme_rle;
-	} else if (g_norle) {
-		l_fh.scheme |= scheme_ac;
 	} else {
-		l_fh.scheme |= scheme_ac;
-		l_fh.scheme |= scheme_rle;
+		if (g_norle) {
+			l_fh.scheme |= scheme_ac;
+		} else {
+			l_fh.scheme |= scheme_ac;
+			l_fh.scheme |= scheme_rle;
+		}
+		if (g_nolzss == 0) {
+			l_fh.scheme |= scheme_lzss;
+		}
 	}
 	l_fh.total_plain_len = htonl(g_in_len);
 	l_fh.segsize = htonl(g_segsize);
 	l_fh.total_rle_len = 0;
+	l_fh.total_lzss_len = 0;
 	res = write(g_out_fd, &l_fh, sizeof(l_fh));
 	if (res < 0) {
 		color_err_printf(1, "carith: unable to write file header to output file.");
@@ -298,6 +308,20 @@ void compress()
 				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(l_total));
 				exit(EXIT_FAILURE);
 			}
+			// write lzss_intermediate to file as network byte order uint32_t
+			l_total = ctx[j].lzss_intermediate;
+			color_debug("block %ld writing lzss_intermediate %ld\n", j, l_total);
+			l_fh.total_lzss_len += l_total;
+			l_total = htonl(l_total);
+			res = write(g_out_fd, &l_total, sizeof(l_total));
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != sizeof(l_total)) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(l_total));
+				exit(EXIT_FAILURE);
+			}
 			// write comp_len + freq_comp_len to file as network byte order uint32_t
 			l_total = ctx[j].comp_len + ctx[j].freq_comp_len;
 			l_total = htonl(l_total);
@@ -364,12 +388,17 @@ void compress()
 	// user warnings
 	int l_warn_norle = 0;
 	int l_warn_rleonly = 0;
+	int l_warn_nolzss = 0;
 	int l_warn_aconly = 0;
 	// check total_rle_len, is it sane?
 	if (l_fh.total_rle_len > g_in_len)
 		l_warn_norle = 1;
 
+	if (l_fh.total_lzss_len > g_in_len)
+		l_warn_nolzss = 1;
+
 	l_fh.total_rle_len = htonl(l_fh.total_rle_len);
+	l_fh.total_lzss_len = htonl(l_fh.total_lzss_len);
 
 	// seek output back and write out updated file header
 	res = lseek(g_out_fd, 0, SEEK_SET);
@@ -402,6 +431,9 @@ void compress()
 			// can't advise the user to use both switches!
 			color_printf("*acarith:*d *ewarning:*d both RLE encoding and arithmetic coding caused file size to increase.\n*acarith:*d file *h%s*d can not be compressed efficiently with *acarith*d.\n", g_in);
 		} else {
+			if (l_warn_nolzss) {
+				color_printf("*acarith:*d *ewarning:*d LZSS encoding caused file size to bloom from *h%ld*d to *h%ld*d.\n*acarith:*d use *h--nolzss*d switch to get better compression ratio.\n", g_in_len, ntohl(l_fh.total_lzss_len));
+			}
 			if (l_warn_norle) {
 				color_printf("*acarith:*d *ewarning:*d RLE encoding caused file size to bloom from *h%ld*d to *h%ld*d.\n*acarith:*d use *h--norle*d switch to get better compression ratio.\n", g_in_len, ntohl(l_fh.total_rle_len));
 			}
@@ -474,13 +506,16 @@ void extract()
 			color_printf("*acarith:*d --- compression chain:    ");
 			if ((l_fh.scheme & scheme_rle) == scheme_rle)
 				color_printf("*hRLE *d");
-			if ((l_fh.scheme & scheme_lzw) == scheme_lzw)
-				color_printf("*hLZW *d");
+			if ((l_fh.scheme & scheme_lzss) == scheme_lzss)
+				color_printf("*hLZSS *d");
 			if ((l_fh.scheme & scheme_ac) == scheme_ac)
 				color_printf("*hAC *d");
 			printf("\n");
 			if ((l_fh.scheme & scheme_rle) == scheme_rle) {
 				color_printf("*acarith:*d --- RLE intermediate:     *h%ld*d\n", ntohl(l_fh.total_rle_len));
+			}
+			if ((l_fh.scheme & scheme_lzss) == scheme_lzss) {
+				color_printf("*acarith:*d --- LZSS intermediate:    *h%ld*d\n", ntohl(l_fh.total_lzss_len));
 			}
 		}
 	} else {
@@ -544,6 +579,7 @@ void extract()
 	uint16_t l_read_freqsize;
 	uint32_t l_read_plainsize;
 	uint32_t l_read_rleintermediate;
+	uint32_t l_read_lzssintermediate;
 
 	// spin up and init threads
 	for (i = 0; i < g_threads; ++i) {
@@ -577,6 +613,16 @@ void extract()
 				exit(EXIT_FAILURE);
 			}
 			l_read_rleintermediate = ntohl(l_read_rleintermediate);
+			res = read(g_in_fd, &l_read_lzssintermediate, sizeof(uint32_t));
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < sizeof(uint32_t)) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(uint32_t));
+				exit(EXIT_FAILURE);
+			}
+			l_read_lzssintermediate = ntohl(l_read_lzssintermediate);
 			res = read(g_in_fd, &l_read_totalcompsize, sizeof(uint32_t));
 			if (res < 0) {
 				color_err_printf(1, "unable to read input file");
@@ -609,10 +655,11 @@ void extract()
 			}
 			l_read_plainsize = ntohl(l_read_plainsize);
 
-			color_debug("block %d totalcompsize %d compsize %d freqsize %d rle_intermediate %ld\n", l_block_ctr, l_read_totalcompsize, l_read_compsize, l_read_freqsize, l_read_rleintermediate);
+			color_debug("block %d totalcompsize %d compsize %d freqsize %d rle_intermediate %ld lzss_intermediate %ld\n", l_block_ctr, l_read_totalcompsize, l_read_compsize, l_read_freqsize, l_read_rleintermediate, l_read_lzssintermediate);
 			ctx[i].block_num = l_block_ctr;
 			ctx[i].plain_len = l_read_plainsize;
 			ctx[i].rle_intermediate = l_read_rleintermediate;
+			ctx[i].lzss_intermediate = l_read_lzssintermediate;
 			ctx[i].freq_comp_len = l_read_freqsize;
 			res = read(g_in_fd, ctx[i].freq_comp, l_read_freqsize);
 			if (res < 0) {
@@ -797,6 +844,11 @@ int main(int argc, char **argv)
 				g_norle = 1;
 			}
 			break;
+			case OPT_NOLZSS:
+			{
+				g_nolzss = 1;
+			}
+			break;
 			case OPT_RLEONLY:
 			{
 				g_rleonly = 1;
@@ -816,6 +868,7 @@ int main(int argc, char **argv)
 				color_printf("*a  -v (--verbose)*d enable verbose mode\n");
 				color_printf("*a     (--norle)*d defeat RLE encode before arithmetic compression\n");
 				color_printf("*a     (--rleonly)*d RLE encode file only, no arithmetic compression\n");
+				color_printf("*a     (--nolzss)*d defeat LZSS encode before arithmetic compression\n");
 				color_printf("*a     (--nokeep)*d delete input files, like UNIX compress command\n");
 				color_printf("*hoperational modes*a (choose only one)*d\n");
 				color_printf("*a  -c (--compress) <file>*d compress a file\n");
@@ -881,6 +934,7 @@ int main(int argc, char **argv)
 		if (g_verbose) color_printf("*acarith:*d keep mode: *h%s*d\n", (g_keep ? "YES" : "NO"));
 		if (g_verbose && g_norle) color_printf("*acarith:*d defeating RLE encode before arithmetic compression.\n");
 		if (g_verbose && g_rleonly) color_printf("*acarith:*d RLE encode file only, no arithmetic compression.\n");
+		if (g_verbose && g_nolzss) color_printf("*acarith:*d defeating LZSS encode before arithmetic compression.\n");
 		g_in[0] = 0;
 		strcpy(g_in, argv[optind]);
 		verify_file_argument();

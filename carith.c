@@ -171,6 +171,35 @@ carith_error_t carith_init_ctx(carith_comp_ctx *ctx, size_t a_worksize)
         free(ctx->comp);
         return CARITH_ERR_MEMORY;
     }
+    // LZSS stuff
+    ctx->lzssenc = NULL;
+    ctx->lzssenc = malloc(LZSS_WINDOW_SIZE + a_worksize);
+    if (ctx->lzssenc == NULL) {
+        free(ctx->plain);
+        free(ctx->rleenc);
+        free(ctx->rledec);
+        free(ctx->comp);
+        free(ctx->decomp);
+        return CARITH_ERR_MEMORY;
+    }
+    ctx->lzssdec = NULL;
+    ctx->lzssdec = malloc(LZSS_WINDOW_SIZE + a_worksize);
+    if (ctx->lzssdec == NULL) {
+        free(ctx->plain);
+        free(ctx->rleenc);
+        free(ctx->rledec);
+        free(ctx->comp);
+        free(ctx->decomp);
+        free(ctx->lzssenc);
+        return CARITH_ERR_MEMORY;
+    }
+
+    // init our LZSS context
+    lzss_error_t err;
+    err = lzss_init_context(&ctx->lzss_context, a_worksize);
+    if (err != LZSS_ERR_NONE) {
+        return CARITH_ERR_MEMORY;
+    }
     return CARITH_ERR_NONE;
 }
 
@@ -181,11 +210,14 @@ carith_error_t carith_init_ctx(carith_comp_ctx *ctx, size_t a_worksize)
 
 carith_error_t carith_free_ctx(carith_comp_ctx *ctx)
 {
+    lzss_free_context(&ctx->lzss_context);
     free(ctx->plain);
     free(ctx->rleenc);
     free(ctx->rledec);
     free(ctx->comp);
     free(ctx->decomp);
+    free(ctx->lzssenc);
+    free(ctx->lzssdec);
     return CARITH_ERR_NONE;
 }
 
@@ -218,38 +250,52 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
     size_t ac_source_size = ctx->plain_len;
 
     ctx->rle_intermediate = 0; // for AC only operation, will be changed if RLE is on
+    ctx->lzss_intermediate = 0;
 
 //    // sanity check
 //    uint8_t sanity[1048576];
 //    size_t sanity_count;
 
-    if ((ctx->scheme & scheme_rle) == scheme_rle) {
-        // rle encode plain to rleenc
-        rle_encode(ctx->plain, ctx->rleenc, ctx->plain_len, &ctx->rle_intermediate);
-//        rle_decode(ctx->comp, sanity, ctx->rle_intermediate, &sanity_count);
-//        printf("\nsanity check: plain_len %ld rle_intermediate %ld sanity_count %ld memcmp %d\n", ctx->plain_len, ctx->rle_intermediate, sanity_count, memcmp(sanity, ctx->plain, ctx->plain_len));
-//        printf("plain: ");
-//        ccct_print_hex(ctx->plain, ctx->plain_len);
-//        printf("comp: ");
-//        ccct_print_hex(ctx->comp, ctx->rle_intermediate);
-//        printf("sanity: ");
-//        ccct_print_hex(sanity, sanity_count);
-//        printf("\n");
-        // are we progressing on to AC? if not, finalize the context here and return
-        if ((ctx->scheme & scheme_ac) == 0) {
-            // RLE but no AC
-            // RLE encoded data is in comp, rle_intermediate contains compressed length
-            // so set comp_len and freq_comp_len pointers appropriately
-            memcpy(ctx->comp, ctx->rleenc, ctx->rle_intermediate);
-            ctx->freq_comp_len = 0;
-            ctx->comp_len = ctx->rle_intermediate;
-            // and return
-            return CARITH_ERR_NONE;
-        } else {
-            // RLE and AC
-            ac_source = ctx->rleenc;
-            ac_source_size = ctx->rle_intermediate;
+// five options here: RLE only, RLE/LZSS/AC, RLE/AC, LZSS/AC, and AC only.
+    enum { RLEONLY, RLELZSSAC, RLEAC, LZSSAC, ACONLY } l_schemenum;
+    switch (ctx->scheme & 0xe0) {
+        case 0x40: l_schemenum = RLEONLY; break;
+        case 0x80: l_schemenum = ACONLY; break;
+        case 0xc0: l_schemenum = RLEAC; break;
+        case 0xe0: l_schemenum = RLELZSSAC; break;
+        case 0xa0: l_schemenum = LZSSAC; break;
+        default: {
+            fprintf(stderr, "unexpected scheme byte value: %02X\n", ctx->scheme);
+            exit(EXIT_FAILURE);
         }
+    }
+
+    if (l_schemenum == RLEONLY) {
+        rle_encode(ctx->plain, ctx->comp, ctx->plain_len, &ctx->rle_intermediate);
+        ctx->freq_comp_len = 0;
+        ctx->comp_len = ctx->rle_intermediate;
+        return CARITH_ERR_NONE;
+    } else if (l_schemenum == RLEAC) {
+        rle_encode(ctx->plain, ctx->rleenc, ctx->plain_len, &ctx->rle_intermediate);
+        ac_source = ctx->rleenc;
+        ac_source_size = ctx->rle_intermediate;
+    } else if (l_schemenum == RLELZSSAC) {
+        rle_encode(ctx->plain, ctx->rleenc + LZSS_WINDOW_SIZE, ctx->plain_len, &ctx->rle_intermediate);
+        lzss_prepare_default_dictionary(&ctx->lzss_context, ctx->rleenc);
+        lzss_prepare_pointer_pool(&ctx->lzss_context, ctx->rleenc, ctx->rle_intermediate);
+        lzss_encode(&ctx->lzss_context, ctx->rleenc, ctx->rle_intermediate, ctx->lzssenc, &ctx->lzss_intermediate);
+        ac_source = ctx->lzssenc;
+        ac_source_size = ctx->lzss_intermediate;
+    } else if (l_schemenum == LZSSAC) {
+        // move plain into rleenc and make space for window
+        memcpy(ctx->rleenc + LZSS_WINDOW_SIZE, ctx->plain, ctx->plain_len);
+        lzss_prepare_default_dictionary(&ctx->lzss_context, ctx->rleenc);
+        lzss_prepare_pointer_pool(&ctx->lzss_context, ctx->rleenc, ctx->plain_len);
+        lzss_encode(&ctx->lzss_context, ctx->rleenc, ctx->rle_intermediate, ctx->lzssenc, &ctx->lzss_intermediate);
+        ac_source = ctx->lzssenc;
+        ac_source_size = ctx->lzss_intermediate;
+    } else if (l_schemenum == ACONLY) {
+        // we're already set up with the AC source set to plain, so do nothing...
     }
 
     freq_count(ctx, ac_source, ac_source_size);
@@ -366,18 +412,37 @@ carith_error_t carith_extract(carith_comp_ctx *ctx)
 {
     uint8_t *ac_dest = ctx->decomp;
     size_t ac_source_size = ctx->plain_len;
+    // set these up to default to ACONLY configuration
     size_t *ac_dest_size;
     ac_dest_size = &ctx->decomp_len;
 
-     // if we're doing RLE only, just skip all the AC stuff
-    if ((ctx->scheme & 0xc0) == scheme_rle)
+    // five options here: RLE only, RLE/LZSS/AC, RLE/AC, LZSS/AC, and AC only.
+    enum { RLEONLY, RLELZSSAC, RLEAC, LZSSAC, ACONLY } l_schemenum;
+    switch (ctx->scheme & 0xe0) {
+        case 0x40: l_schemenum = RLEONLY; break;
+        case 0x80: l_schemenum = ACONLY; break;
+        case 0xc0: l_schemenum = RLEAC; break;
+        case 0xe0: l_schemenum = RLELZSSAC; break;
+        case 0xa0: l_schemenum = LZSSAC; break;
+        default: {
+            fprintf(stderr, "unexpected scheme byte value: %02X\n", ctx->scheme);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // if we're doing RLE only, just skip all the AC stuff
+    if (l_schemenum == RLEONLY)
         goto carith_extract_skipac;
 
     // if we're using AC and RLE, change ac_dest to point to rledec
-    if ((ctx->scheme & scheme_rle) == scheme_rle) {
+    if (l_schemenum == RLEAC) {
         ac_dest = ctx->rledec;
         ac_dest_size = &ctx->rledec_len;
         ac_source_size = ctx->rle_intermediate;
+    } else if ((l_schemenum == RLELZSSAC) || (l_schemenum == LZSSAC)) {
+        // decompressed AC stream goes to lzssdec
+        ac_dest = ctx->lzssdec;
+        ac_dest_size = &ctx->lzssdec_len;
     }
 
     uint64_t range_lo, range_hi;
@@ -488,15 +553,32 @@ carith_error_t carith_extract(carith_comp_ctx *ctx)
     *ac_dest_size = decomp_ptr;
 
     // if we're doing AC only, just return
-    if ((ctx->scheme & 0xc0) == scheme_ac)
+    if (l_schemenum == ACONLY)
         return CARITH_ERR_NONE;
 
 carith_extract_skipac:
 
     // if we did rle only, copy comp into rledec
-    if ((ctx->scheme & 0xc0) == scheme_rle) {
+    if (l_schemenum == RLEONLY) {
         memcpy(ctx->rledec, ctx->comp, ctx->comp_len);
         ctx->rledec_len = ctx->comp_len;
+        // RLE decode rledec into decomp
+        rle_decode(ctx->rledec, ctx->decomp, ctx->rledec_len, &ctx->decomp_len);
+    } else if (l_schemenum == RLEAC) {
+        // AC operation decomped into rledec, so decode it
+        rle_decode(ctx->rledec, ctx->decomp, ctx->rledec_len, &ctx->decomp_len);
+    } else if (l_schemenum == RLELZSSAC) {
+        // decompress LZSS tokens waiting in lzssdec into rledec.
+        // remember, rledec will be windowed after this operation.
+        lzss_prepare_default_dictionary(&ctx->lzss_context, ctx->rledec);
+        lzss_decode(&ctx->lzss_context, ctx->lzssdec, ctx->lzssdec_len, ctx->rledec, &ctx->rledec_len);
+        // and then do the RLE decode
+        rle_decode(ctx->rledec + LZSS_WINDOW_SIZE, ctx->decomp, ctx->rledec_len, &ctx->decomp_len);
+    } else if (l_schemenum == LZSSAC) {
+        // decompress into lzssdec, then copy the text after the window into decomp and set decomp's len
+        lzss_prepare_default_dictionary(&ctx->lzss_context, ctx->rledec);
+        lzss_decode(&ctx->lzss_context, ctx->lzssdec, ctx->lzssdec_len, ctx->rledec, &ctx->rledec_len);
+        memcpy(ctx->decomp, ctx->rledec + LZSS_WINDOW_SIZE, ctx->rledec_len);
     }
 
     // just for laughs, lets verify that rleenc and rledec contain the same data
@@ -509,8 +591,6 @@ carith_extract_skipac:
 //    }
 //    printf("after extract: comp_len %ld rledec_len %ld rle_intermediate %ld\n", ctx->comp_len, ctx->rledec_len, ctx->rle_intermediate);
 
-    // RLE decode rledec into decomp
-    rle_decode(ctx->rledec, ctx->decomp, ctx->rledec_len, &ctx->decomp_len);
 //    printf("after rle decode: decomp_len %ld\n", ctx->decomp_len);
     return CARITH_ERR_NONE;
 }
