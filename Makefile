@@ -17,7 +17,7 @@ TEST_TARGET_OBJS = algo_test.o
 RLEINT_TARGET = rleint
 RLEINT_TARGET_OBJS = rleint.o rle.o carith.o cbit.o
 LZSS_TEST_TARGET = lzss_test
-LZSS_TEST_TARGET_OBJS = lzss_test.o
+LZSS_TEST_TARGET_OBJS = lzss_test.o lzss.o
 
 all: command test
 
