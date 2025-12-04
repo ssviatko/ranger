@@ -1,0 +1,65 @@
+\doxysection{lzss.\+h}
+\hypertarget{lzss_8h_source}{}\label{lzss_8h_source}\mbox{\hyperlink{lzss_8h}{Go to the documentation of this file.}}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{00001\ }
+\DoxyCodeLine{00035\ }
+\DoxyCodeLine{00036\ \textcolor{preprocessor}{\#ifndef\ LZSS\_H}}
+\DoxyCodeLine{00037\ \textcolor{preprocessor}{\#define\ LZSS\_H}}
+\DoxyCodeLine{00038\ }
+\DoxyCodeLine{00039\ \textcolor{preprocessor}{\#ifdef\ \_\_cplusplus}}
+\DoxyCodeLine{00040\ \textcolor{keyword}{extern}\ \textcolor{stringliteral}{"{}C"{}}\ \{}
+\DoxyCodeLine{00041\ \textcolor{preprocessor}{\#endif}}
+\DoxyCodeLine{00042\ }
+\DoxyCodeLine{00043\ \textcolor{preprocessor}{\#pragma\ pack(1)}}
+\DoxyCodeLine{00044\ }
+\DoxyCodeLine{00045\ \textcolor{preprocessor}{\#include\ <stdio.h>}}
+\DoxyCodeLine{00046\ \textcolor{preprocessor}{\#include\ <stdint.h>}}
+\DoxyCodeLine{00047\ \textcolor{preprocessor}{\#include\ <string.h>}}
+\DoxyCodeLine{00048\ \textcolor{preprocessor}{\#include\ <stdlib.h>}}
+\DoxyCodeLine{00049\ \textcolor{preprocessor}{\#include\ <arpa/inet.h>}\ \textcolor{comment}{//\ for\ htons/htonl}}
+\DoxyCodeLine{00050\ }
+\DoxyCodeLine{00060\ }
+\DoxyCodeLine{00061\ \textcolor{keyword}{typedef}\ \textcolor{keyword}{struct\ }\{}
+\DoxyCodeLine{00062\ \ \ \ \ \textcolor{keywordtype}{int}\ \mbox{\hyperlink{structtoken__block__t_a5adbaebaf6a6e1e928378bddd613cae8}{numflags}};\ }
+\DoxyCodeLine{00063\ \ \ \ \ uint8\_t\ \mbox{\hyperlink{structtoken__block__t_a19826874f2d7aae3250d3603f71bdca0}{flags}};\ }
+\DoxyCodeLine{00064\ \ \ \ \ uint16\_t\ \mbox{\hyperlink{structtoken__block__t_a16a36c2c72f119a12134c6f3614570e3}{tokens}}[8];\ }
+\DoxyCodeLine{00065\ \}\ \mbox{\hyperlink{structtoken__block__t}{token\_block\_t}};\ }
+\DoxyCodeLine{00066\ }
+\DoxyCodeLine{00089\ }
+\DoxyCodeLine{00090\ \textcolor{keyword}{typedef}\ \textcolor{keyword}{struct\ }\{}
+\DoxyCodeLine{00091\ \ \ \ \ uint32\_t\ \mbox{\hyperlink{structsymbol__hint__t_ad960486e75d78b23c152168a6ac3c99f}{count\_base}};\ }
+\DoxyCodeLine{00092\ \ \ \ \ uint32\_t\ \mbox{\hyperlink{structsymbol__hint__t_a819e6a077daf98a079b6919bf3d588c0}{search\_base}};\ }
+\DoxyCodeLine{00093\ \ \ \ \ uint32\_t\ \mbox{\hyperlink{structsymbol__hint__t_a6339b4fa8810953c9f64e538b01e46b1}{count}};\ }
+\DoxyCodeLine{00094\ \ \ \ \ uint32\_t\ \mbox{\hyperlink{structsymbol__hint__t_a343e92e184c9a3c0718f8e5bc2570f05}{next\_pool\_loc}};\ }
+\DoxyCodeLine{00095\ \}\ \mbox{\hyperlink{structsymbol__hint__t}{symbol\_hint\_t}};\ }
+\DoxyCodeLine{00096\ }
+\DoxyCodeLine{00104\ }
+\DoxyCodeLine{00105\ \textcolor{keyword}{typedef}\ \textcolor{keyword}{struct\ }\{}
+\DoxyCodeLine{00106\ \ \ \ \ uint32\_t\ *\mbox{\hyperlink{structlzss__comp__ctx_a9c6aadf296fe1a15b6396cf9eb0494fc}{pointer\_pool}};\ }
+\DoxyCodeLine{00107\ \ \ \ \ \mbox{\hyperlink{structsymbol__hint__t}{symbol\_hint\_t}}\ \mbox{\hyperlink{structlzss__comp__ctx_a071d006237652ae28001879b9e856393}{symbols}}[256];\ }
+\DoxyCodeLine{00108\ \ \ \ \ uint32\_t\ \mbox{\hyperlink{structlzss__comp__ctx_a2b1985d0f790f5d456bcf248a2ce36ec}{seed\_dictionary\_start}};\ }
+\DoxyCodeLine{00109\ \}\ \mbox{\hyperlink{structlzss__comp__ctx}{lzss\_comp\_ctx}};\ }
+\DoxyCodeLine{00110\ }
+\DoxyCodeLine{00115\ }
+\DoxyCodeLine{00116\ \textcolor{keyword}{typedef}\ \textcolor{keyword}{enum}\ \{}
+\DoxyCodeLine{00117\ \ \ \ \ LZSS\_ERR\_NONE,}
+\DoxyCodeLine{00118\ \ \ \ \ LZSS\_ERR\_MEMORY,}
+\DoxyCodeLine{00119\ \ \ \ \ LZSS\_ERR\_ZEROIN}
+\DoxyCodeLine{00120\ \}\ \mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\_error\_t}};}
+\DoxyCodeLine{00121\ }
+\DoxyCodeLine{00122\ \textcolor{keyword}{const}\ \textcolor{keywordtype}{char}\ \ \ \ \ *\mbox{\hyperlink{lzss_8h_ad57167af4c77f4c1377caa44a6acfc98}{lzss\_strerror}}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ (\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\_error\_t}}\ a\_errno);}
+\DoxyCodeLine{00123\ \mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\_error\_t}}\ \ \ \ \mbox{\hyperlink{lzss_8h_ae84edf797ca2bc7c19d3f52b05331666}{lzss\_prepare\_dictionary}}\ \ \ \ \ \ \ \ \ (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\_comp\_ctx}}\ *ctx,\ \textcolor{keyword}{const}\ uint8\_t\ *a\_seed,\ \textcolor{keywordtype}{size\_t}\ a\_seed\_len,\ uint8\_t\ *a\_buffer);}
+\DoxyCodeLine{00124\ \mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\_error\_t}}\ \ \ \ \mbox{\hyperlink{lzss_8h_a8cf63d0edc97076d5e4a80f4601e2d18}{lzss\_prepare\_default\_dictionary}}\ (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\_comp\_ctx}}\ *ctx,\ uint8\_t\ *a\_buffer);}
+\DoxyCodeLine{00125\ \mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\_error\_t}}\ \ \ \ \mbox{\hyperlink{lzss_8h_ade5b89bc78ce6ff4122dd1426be64be5}{lzss\_init\_context}}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\_comp\_ctx}}\ *ctx,\ \textcolor{keywordtype}{size\_t}\ a\_worksize);}
+\DoxyCodeLine{00126\ \mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\_error\_t}}\ \ \ \ \mbox{\hyperlink{lzss_8h_a03916f3d483d703377d340eab685af9e}{lzss\_free\_context}}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\_comp\_ctx}}\ *ctx);}
+\DoxyCodeLine{00127\ \mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\_error\_t}}\ \ \ \ \mbox{\hyperlink{lzss_8h_ab19fbd15e98f2d17196c614e93d2bb1b}{lzss\_prepare\_pointer\_pool}}\ \ \ \ \ \ \ (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\_comp\_ctx}}\ *ctx,\ uint8\_t\ *a\_in,\ \textcolor{keywordtype}{size\_t}\ a\_in\_len);}
+\DoxyCodeLine{00128\ \mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\_error\_t}}\ \ \ \ \mbox{\hyperlink{lzss_8h_a3c373cc8e98d00d6ff05b01924441d49}{lzss\_encode}}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\_comp\_ctx}}\ *ctx,\ uint8\_t\ *a\_in,\ \textcolor{keywordtype}{size\_t}\ a\_in\_len,\ uint8\_t\ *a\_out,\ \textcolor{keywordtype}{size\_t}\ *a\_out\_len);}
+\DoxyCodeLine{00129\ \mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\_error\_t}}\ \ \ \ \mbox{\hyperlink{lzss_8h_a5bb5cfac22c3d30608974d4a3f5559f6}{lzss\_decode}}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\_comp\_ctx}}\ *ctx,\ uint8\_t\ *a\_in,\ \textcolor{keywordtype}{size\_t}\ a\_in\_len,\ uint8\_t\ *a\_out,\ \textcolor{keywordtype}{size\_t}\ *a\_out\_len);}
+\DoxyCodeLine{00130\ }
+\DoxyCodeLine{00131\ \textcolor{preprocessor}{\#ifdef\ \_\_cplusplus}}
+\DoxyCodeLine{00132\ \}}
+\DoxyCodeLine{00133\ \textcolor{preprocessor}{\#endif}}
+\DoxyCodeLine{00134\ }
+\DoxyCodeLine{00135\ \textcolor{preprocessor}{\#endif\ }\textcolor{comment}{//\ LZSS\_H}}
+
+\end{DoxyCode}

@@ -1,0 +1,80 @@
+\doxysection{color\+\_\+print.\+h File Reference}
+\hypertarget{color__print_8h}{}\label{color__print_8h}\index{color\_print.h@{color\_print.h}}
+
+
+C Terminal Color Printing API.  
+
+
+{\ttfamily \#include $<$stdio.\+h$>$}\newline
+{\ttfamily \#include $<$string.\+h$>$}\newline
+{\ttfamily \#include $<$errno.\+h$>$}\newline
+{\ttfamily \#include $<$stdarg.\+h$>$}\newline
+{\ttfamily \#include $<$stdint.\+h$>$}\newline
+{\ttfamily \#include $<$pthread.\+h$>$}\newline
+\doxysubsubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{color__print_8h_a65314ede9be8799048771161a9589f2b}\label{color__print_8h_a65314ede9be8799048771161a9589f2b} 
+\#define {\bfseries BUFFLEN}~1024
+\item 
+\Hypertarget{color__print_8h_a9e9367953cc25866b9b064124d408ac3}\label{color__print_8h_a9e9367953cc25866b9b064124d408ac3} 
+\#define {\bfseries CP\+\_\+\+GREEN\+\_\+\+COLOR\+\_\+\+HEADING}~"{}\textbackslash{}033\mbox{[}32m"{}
+\begin{DoxyCompactList}\small\item\em Heading color. \end{DoxyCompactList}\item 
+\Hypertarget{color__print_8h_a5fdf1837a898bf52b2b64149f608e611}\label{color__print_8h_a5fdf1837a898bf52b2b64149f608e611} 
+\#define {\bfseries CP\+\_\+\+GREEN\+\_\+\+COLOR\+\_\+\+ERROR}~"{}\textbackslash{}033\mbox{[}91m"{}
+\begin{DoxyCompactList}\small\item\em For error messages. \end{DoxyCompactList}\item 
+\Hypertarget{color__print_8h_a2faff9f19301456abd2c88e3e4499539}\label{color__print_8h_a2faff9f19301456abd2c88e3e4499539} 
+\#define {\bfseries CP\+\_\+\+GREEN\+\_\+\+COLOR\+\_\+\+HIGHLIGHT}~"{}\textbackslash{}033\mbox{[}92m"{}
+\begin{DoxyCompactList}\small\item\em Extra bright for highlights. \end{DoxyCompactList}\item 
+\Hypertarget{color__print_8h_a0ce63657363665372240f0eb1e13dcda}\label{color__print_8h_a0ce63657363665372240f0eb1e13dcda} 
+\#define {\bfseries CP\+\_\+\+GREEN\+\_\+\+COLOR\+\_\+\+BULLET}~"{}\textbackslash{}033\mbox{[}93m"{}
+\begin{DoxyCompactList}\small\item\em Outstanding messages. \end{DoxyCompactList}\item 
+\Hypertarget{color__print_8h_a2bef86fd7a672edb2c2057a71b06cc66}\label{color__print_8h_a2bef86fd7a672edb2c2057a71b06cc66} 
+\#define {\bfseries CP\+\_\+\+GREEN\+\_\+\+COLOR\+\_\+\+DEFAULT}~"{}\textbackslash{}033\mbox{[}39m\textbackslash{}033\mbox{[}49m"{}
+\begin{DoxyCompactList}\small\item\em Return to default terminal color. \end{DoxyCompactList}\item 
+\Hypertarget{color__print_8h_a613ba4e60e44ef571124d1b13036f4a0}\label{color__print_8h_a613ba4e60e44ef571124d1b13036f4a0} 
+\#define {\bfseries CP\+\_\+\+GREEN\+\_\+\+COLOR\+\_\+\+DEBUG}~"{}\textbackslash{}033\mbox{[}33m"{}
+\begin{DoxyCompactList}\small\item\em Debug messages. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{color__print_8h_a154d4094110efa638edf0ce64ce5888d}\label{color__print_8h_a154d4094110efa638edf0ce64ce5888d} 
+void {\bfseries color\+\_\+init} (const int a\+\_\+nocolor, const int a\+\_\+debug)
+\item 
+\Hypertarget{color__print_8h_a9b609f381050b52df89a5d038f45c1ba}\label{color__print_8h_a9b609f381050b52df89a5d038f45c1ba} 
+void {\bfseries color\+\_\+free} ()
+\item 
+\Hypertarget{color__print_8h_ab9794351c8ea0614fb4a93c0c5c55af5}\label{color__print_8h_ab9794351c8ea0614fb4a93c0c5c55af5} 
+void {\bfseries color\+\_\+progress} (uint32\+\_\+t a\+\_\+sofar, uint32\+\_\+t a\+\_\+total)
+\item 
+\Hypertarget{color__print_8h_a147e087b18440098860537e2492cf0b9}\label{color__print_8h_a147e087b18440098860537e2492cf0b9} 
+void {\bfseries color\+\_\+printf} (const char \texorpdfstring{$\ast$}{*}format,...)
+\item 
+\Hypertarget{color__print_8h_addbb2a9ac301356dbefe1ba870ec375a}\label{color__print_8h_addbb2a9ac301356dbefe1ba870ec375a} 
+void {\bfseries color\+\_\+err\+\_\+printf} (int a\+\_\+strerror, const char \texorpdfstring{$\ast$}{*}format,...)
+\item 
+\Hypertarget{color__print_8h_a32c197538d27f0aa782ad965c7b515e2}\label{color__print_8h_a32c197538d27f0aa782ad965c7b515e2} 
+void {\bfseries color\+\_\+debug} (const char \texorpdfstring{$\ast$}{*}format,...)
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+C Terminal Color Printing API. 
+
+C Terminal Color Printing API 2025/\+Nov/23 -\/ Revision 0.\+80 alpha
+
+Created by\+: Stephen Sviatko
+
+(C) 2025 Good Neighbors LLC -\/ All Rights Reserved, except where noted
+
+This file and any intellectual property (designs, algorithms, formulas, procedures, trademarks, and related documentation) contained herein are property of Good Neighbors, an Arizona Limited Liability Company.
+
+LICENSING INFORMATION
+
+This file may not be distributed in any modified form without expressed written permission of Good Neighbors LLC or its regents. Permission is granted to use this file in any non-\/commercial, non-\/governmental capacity (such as student projects, hobby projects, etc) without an official licensing agreement as long as the original author(s) are credited in any derivative work.
+
+Commercial licensing of this content is available, any agreement must include consulting services as part of a deployment strategy. For more information, please contact Stephen Sviatko at the following email address\+:
+
+\href{mailto:ssviatko@gmail.com}{\texttt{ssviatko@gmail.\+com}}
+
+Extends printf and fprintf to enable color ANSI printing to the terminal. 

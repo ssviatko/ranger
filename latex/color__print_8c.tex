@@ -1,0 +1,63 @@
+\doxysection{color\+\_\+print.\+c File Reference}
+\hypertarget{color__print_8c}{}\label{color__print_8c}\index{color\_print.c@{color\_print.c}}
+
+
+C Terminal Color Printing API.  
+
+
+{\ttfamily \#include "{}color\+\_\+print.\+h"{}}\newline
+\doxysubsubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{color__print_8c_a154d4094110efa638edf0ce64ce5888d}\label{color__print_8c_a154d4094110efa638edf0ce64ce5888d} 
+void {\bfseries color\+\_\+init} (const int a\+\_\+nocolor, const int a\+\_\+debug)
+\item 
+\Hypertarget{color__print_8c_a9b609f381050b52df89a5d038f45c1ba}\label{color__print_8c_a9b609f381050b52df89a5d038f45c1ba} 
+void {\bfseries color\+\_\+free} ()
+\item 
+\Hypertarget{color__print_8c_ab9794351c8ea0614fb4a93c0c5c55af5}\label{color__print_8c_ab9794351c8ea0614fb4a93c0c5c55af5} 
+void {\bfseries color\+\_\+progress} (uint32\+\_\+t a\+\_\+sofar, uint32\+\_\+t a\+\_\+total)
+\item 
+\Hypertarget{color__print_8c_a147e087b18440098860537e2492cf0b9}\label{color__print_8c_a147e087b18440098860537e2492cf0b9} 
+void {\bfseries color\+\_\+printf} (const char \texorpdfstring{$\ast$}{*}format,...)
+\item 
+\Hypertarget{color__print_8c_addbb2a9ac301356dbefe1ba870ec375a}\label{color__print_8c_addbb2a9ac301356dbefe1ba870ec375a} 
+void {\bfseries color\+\_\+err\+\_\+printf} (int a\+\_\+strerror, const char \texorpdfstring{$\ast$}{*}format,...)
+\item 
+\Hypertarget{color__print_8c_a32c197538d27f0aa782ad965c7b515e2}\label{color__print_8c_a32c197538d27f0aa782ad965c7b515e2} 
+void {\bfseries color\+\_\+debug} (const char \texorpdfstring{$\ast$}{*}format,...)
+\end{DoxyCompactItemize}
+\doxysubsubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{color__print_8c_a673b8177e93a08cbe8eb5697d0f63e78}\label{color__print_8c_a673b8177e93a08cbe8eb5697d0f63e78} 
+static int {\bfseries g\+\_\+nocolor}
+\begin{DoxyCompactList}\small\item\em Set to 1 to disable color printing. \end{DoxyCompactList}\item 
+\Hypertarget{color__print_8c_aec3da79caffa5aed7768d1a3de13d77f}\label{color__print_8c_aec3da79caffa5aed7768d1a3de13d77f} 
+static int {\bfseries g\+\_\+debug}
+\begin{DoxyCompactList}\small\item\em Set to 1 to enable debug printing. \end{DoxyCompactList}\item 
+\Hypertarget{color__print_8c_ac13441e461ee3255631349e5e837ea41}\label{color__print_8c_ac13441e461ee3255631349e5e837ea41} 
+static pthread\+\_\+mutex\+\_\+t {\bfseries g\+\_\+debug\+\_\+mtx}
+\begin{DoxyCompactList}\small\item\em protect debug messages in multithreaded environment \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+C Terminal Color Printing API. 
+
+C Terminal Color Printing API 2025/\+Nov/23 -\/ Revision 0.\+80 alpha
+
+Created by\+: Stephen Sviatko
+
+(C) 2025 Good Neighbors LLC -\/ All Rights Reserved, except where noted
+
+This file and any intellectual property (designs, algorithms, formulas, procedures, trademarks, and related documentation) contained herein are property of Good Neighbors, an Arizona Limited Liability Company.
+
+LICENSING INFORMATION
+
+This file may not be distributed in any modified form without expressed written permission of Good Neighbors LLC or its regents. Permission is granted to use this file in any non-\/commercial, non-\/governmental capacity (such as student projects, hobby projects, etc) without an official licensing agreement as long as the original author(s) are credited in any derivative work.
+
+Commercial licensing of this content is available, any agreement must include consulting services as part of a deployment strategy. For more information, please contact Stephen Sviatko at the following email address\+:
+
+\href{mailto:ssviatko@gmail.com}{\texttt{ssviatko@gmail.\+com}}
+
+Extends printf and fprintf to enable color ANSI printing to the terminal. 

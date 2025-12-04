@@ -1,0 +1,33 @@
+\doxysection{lzss\+\_\+comp\+\_\+ctx Struct Reference}
+\hypertarget{structlzss__comp__ctx}{}\label{structlzss__comp__ctx}\index{lzss\_comp\_ctx@{lzss\_comp\_ctx}}
+
+
+The LZSS context.  
+
+
+
+
+{\ttfamily \#include $<$lzss.\+h$>$}
+
+\doxysubsubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{structlzss__comp__ctx_a9c6aadf296fe1a15b6396cf9eb0494fc}\label{structlzss__comp__ctx_a9c6aadf296fe1a15b6396cf9eb0494fc} 
+uint32\+\_\+t \texorpdfstring{$\ast$}{*} {\bfseries pointer\+\_\+pool}
+\begin{DoxyCompactList}\small\item\em pointers, one for every byte in the buffer, which is typically \mbox{[}WINDOW\+\_\+\+SIZE + SEGSIZE\mbox{]} \end{DoxyCompactList}\item 
+\Hypertarget{structlzss__comp__ctx_a071d006237652ae28001879b9e856393}\label{structlzss__comp__ctx_a071d006237652ae28001879b9e856393} 
+\mbox{\hyperlink{structsymbol__hint__t}{symbol\+\_\+hint\+\_\+t}} {\bfseries symbols} \mbox{[}256\mbox{]}
+\begin{DoxyCompactList}\small\item\em Array of symbol hints. \end{DoxyCompactList}\item 
+\Hypertarget{structlzss__comp__ctx_a2b1985d0f790f5d456bcf248a2ce36ec}\label{structlzss__comp__ctx_a2b1985d0f790f5d456bcf248a2ce36ec} 
+uint32\+\_\+t {\bfseries seed\+\_\+dictionary\+\_\+start}
+\begin{DoxyCompactList}\small\item\em Pointer to start of seeded dictionary. This is where we open the window at the start of encoding. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+The LZSS context. 
+
+This is the block of contextual data that the LZSS system uses to address a specific LZSS session. 
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{lzss_8h}{lzss.\+h}}\end{DoxyCompactItemize}

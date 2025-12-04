@@ -1,0 +1,211 @@
+\doxysection{lzss.\+h File Reference}
+\hypertarget{lzss_8h}{}\label{lzss_8h}\index{lzss.h@{lzss.h}}
+
+
+Lempel/\+Ziv/\+Storer/\+Szymanski dictionary compressor.  
+
+
+{\ttfamily \#include $<$stdio.\+h$>$}\newline
+{\ttfamily \#include $<$stdint.\+h$>$}\newline
+{\ttfamily \#include $<$string.\+h$>$}\newline
+{\ttfamily \#include $<$stdlib.\+h$>$}\newline
+{\ttfamily \#include $<$arpa/inet.\+h$>$}\newline
+\doxysubsubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structtoken__block__t}{token\+\_\+block\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Block of 8 tokens awaiting write to output stream. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structsymbol__hint__t}{symbol\+\_\+hint\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Definition of a symbol hint. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}}
+\begin{DoxyCompactList}\small\item\em The LZSS context. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}\label{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1} 
+enum \mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} \{ {\bfseries LZSS\+\_\+\+ERR\+\_\+\+NONE}
+, {\bfseries LZSS\+\_\+\+ERR\+\_\+\+MEMORY}
+, {\bfseries LZSS\+\_\+\+ERR\+\_\+\+ZEROIN}
+ \}
+\begin{DoxyCompactList}\small\item\em An enumerated list of return error codes. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+const char \texorpdfstring{$\ast$}{*} \mbox{\hyperlink{lzss_8h_ad57167af4c77f4c1377caa44a6acfc98}{lzss\+\_\+strerror}} (\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} a\+\_\+errno)
+\begin{DoxyCompactList}\small\item\em Returns a char pointer to an existing error string Works in exactly the same way as the strerror(errno) function works in the standard library. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} \mbox{\hyperlink{lzss_8h_ae84edf797ca2bc7c19d3f52b05331666}{lzss\+\_\+prepare\+\_\+dictionary}} (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx, const uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+seed, size\+\_\+t a\+\_\+seed\+\_\+len, uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+buffer)
+\begin{DoxyCompactList}\small\item\em Install custom seed dictionary into buffer. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} \mbox{\hyperlink{lzss_8h_a8cf63d0edc97076d5e4a80f4601e2d18}{lzss\+\_\+prepare\+\_\+default\+\_\+dictionary}} (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx, uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+buffer)
+\begin{DoxyCompactList}\small\item\em Install the default seed dictionary into buffer. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} \mbox{\hyperlink{lzss_8h_ade5b89bc78ce6ff4122dd1426be64be5}{lzss\+\_\+init\+\_\+context}} (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx, size\+\_\+t a\+\_\+worksize)
+\begin{DoxyCompactList}\small\item\em Initialize a LZSS context. \end{DoxyCompactList}\item 
+\Hypertarget{lzss_8h_a03916f3d483d703377d340eab685af9e}\label{lzss_8h_a03916f3d483d703377d340eab685af9e} 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} {\bfseries lzss\+\_\+free\+\_\+context} (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx)
+\begin{DoxyCompactList}\small\item\em Free a LZSS context Release all allocated memory. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} \mbox{\hyperlink{lzss_8h_ab19fbd15e98f2d17196c614e93d2bb1b}{lzss\+\_\+prepare\+\_\+pointer\+\_\+pool}} (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx, uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+in, size\+\_\+t a\+\_\+in\+\_\+len)
+\begin{DoxyCompactList}\small\item\em Count symbols and build pointer pool. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} \mbox{\hyperlink{lzss_8h_a3c373cc8e98d00d6ff05b01924441d49}{lzss\+\_\+encode}} (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx, uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+in, size\+\_\+t a\+\_\+in\+\_\+len, uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+out, size\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+out\+\_\+len)
+\begin{DoxyCompactList}\small\item\em Encode an LZSS block. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} \mbox{\hyperlink{lzss_8h_a5bb5cfac22c3d30608974d4a3f5559f6}{lzss\+\_\+decode}} (\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx, uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+in, size\+\_\+t a\+\_\+in\+\_\+len, uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+out, size\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+out\+\_\+len)
+\begin{DoxyCompactList}\small\item\em Decode an LZSS block. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Lempel/\+Ziv/\+Storer/\+Szymanski dictionary compressor. 
+
+LZSS API 2025/\+Dec/03 -\/ Revision 0.\+80 alpha
+
+Created by\+: Stephen Sviatko
+
+(C) 2025 Good Neighbors LLC -\/ All Rights Reserved, except where noted
+
+This file and any intellectual property (designs, algorithms, formulas, procedures, trademarks, and related documentation) contained herein are property of Good Neighbors, an Arizona Limited Liability Company.
+
+LICENSING INFORMATION
+
+This file may not be distributed in any modified form without expressed written permission of Good Neighbors LLC or its regents. Permission is granted to use this file in any non-\/commercial, non-\/governmental capacity (such as student projects, hobby projects, etc) without an official licensing agreement as long as the original author(s) are credited in any derivative work.
+
+Commercial licensing of this content is available, any agreement must include consulting services as part of a deployment strategy. For more information, please contact Stephen Sviatko at the following email address\+:
+
+\href{mailto:ssviatko@gmail.com}{\texttt{ssviatko@gmail.\+com}}
+
+LZSS API 
+
+\label{doc-func-members}
+\Hypertarget{lzss_8h_doc-func-members}
+\doxysubsection{Function Documentation}
+\Hypertarget{lzss_8h_a5bb5cfac22c3d30608974d4a3f5559f6}\index{lzss.h@{lzss.h}!lzss\_decode@{lzss\_decode}}
+\index{lzss\_decode@{lzss\_decode}!lzss.h@{lzss.h}}
+\doxysubsubsection{\texorpdfstring{lzss\_decode()}{lzss\_decode()}}
+{\footnotesize\ttfamily \label{lzss_8h_a5bb5cfac22c3d30608974d4a3f5559f6} 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} lzss\+\_\+decode (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}}]{ctx}{, }\item[{uint8\+\_\+t \texorpdfstring{$\ast$}{*}}]{a\+\_\+in}{, }\item[{size\+\_\+t}]{a\+\_\+in\+\_\+len}{, }\item[{uint8\+\_\+t \texorpdfstring{$\ast$}{*}}]{a\+\_\+out}{, }\item[{size\+\_\+t \texorpdfstring{$\ast$}{*}}]{a\+\_\+out\+\_\+len}{}\end{DoxyParamCaption})}
+
+
+
+Decode an LZSS block. 
+
+This is the main decompression routine. It takes a buffer of compression tokens as input and a buffer large enough to hold the window and the output data. Note that the window must be seeded with the same dictionary that was used to compress the data in the lzss\+\_\+encode function above.
+
+NOTE\+: Using the wrong dictionary will result in corrupt output data!
+
+Same advice for output buffer size in the Encode routine applies here. it is recommended that the output buffer be 3/2 the size of expected decompressed plain text plus the size of the window.
+
+
+\begin{DoxyParams}[1]{Parameters}
+\mbox{\texttt{in}}  & {\em ctx} & The LZSS Context \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+in} & Pointer to buffer containing compression tokens \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+in\+\_\+len} & Length of buffer containing compression tokens \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+out} & Pointer to windowed buffer with appropriate seed dictionary and space for output \\
+\hline
+\mbox{\texttt{out}}  & {\em a\+\_\+out\+\_\+len} & The length of the output data \\
+\hline
+\end{DoxyParams}
+\Hypertarget{lzss_8h_a3c373cc8e98d00d6ff05b01924441d49}\index{lzss.h@{lzss.h}!lzss\_encode@{lzss\_encode}}
+\index{lzss\_encode@{lzss\_encode}!lzss.h@{lzss.h}}
+\doxysubsubsection{\texorpdfstring{lzss\_encode()}{lzss\_encode()}}
+{\footnotesize\ttfamily \label{lzss_8h_a3c373cc8e98d00d6ff05b01924441d49} 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} lzss\+\_\+encode (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}}]{ctx}{, }\item[{uint8\+\_\+t \texorpdfstring{$\ast$}{*}}]{a\+\_\+in}{, }\item[{size\+\_\+t}]{a\+\_\+in\+\_\+len}{, }\item[{uint8\+\_\+t \texorpdfstring{$\ast$}{*}}]{a\+\_\+out}{, }\item[{size\+\_\+t \texorpdfstring{$\ast$}{*}}]{a\+\_\+out\+\_\+len}{}\end{DoxyParamCaption})}
+
+
+
+Encode an LZSS block. 
+
+This is the main compression routine. It takes a buffer as input which is large enough to hold a complete window (typically 4095 bytes) plus all of the input data. For example, if the user is compressing 64k of data, then the input buffer must be capable of holding 68k (the 4k window + the 64k).
+
+The window should be seeded with a pre-\/defined dictionary. If you have no dictionary prepared, then you should call lzss\+\_\+prepare\+\_\+default\+\_\+dictionary before doing the symbol count with lzss\+\_\+prepare\+\_\+pointer\+\_\+pool. Having a pre-\/defined seed dictionary radically improves the compression ratio on small files of 4k or less. If you choose to make your own custom dictionary, it should contain words/phrases and/or byte sequences that you imagine to be common to the data you intend to encode.
+
+The output buffer must be large enough to contain all of the compression tokens, plus the 12 bytes of informational data the compressor writes at the start of the output stream. Note that an uncompressible input stream will result in writing excessive byte tokens with very few match tokens, and with a 9/8 ratio of output data to input bytes this will result in a compression ratio of around 112.\+5\%. For this reason the output buffer should be at least 9/8ths the size of the input data, and should include additional space as a guard on the end of that. A conservtive recommendation would be to make the output buffer 3/2 the size of the input buffer. This is the size used in the lzss\+\_\+test demonstration program, and it is probably overkill, but it will guarantee that you will never overrun the buffer.
+
+
+\begin{DoxyParams}[1]{Parameters}
+\mbox{\texttt{in}}  & {\em ctx} & The LZSS Context \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+in} & Pointer to buffer containing window + input data \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+in\+\_\+len} & Length of buffer (window + input data) \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+out} & Pointer to buffer large enough to contain compression tokens \\
+\hline
+\mbox{\texttt{out}}  & {\em a\+\_\+out\+\_\+len} & The length of the output data \\
+\hline
+\end{DoxyParams}
+\texorpdfstring{$<$}{<} Number of bytes initially copied directly before first match
+
+\texorpdfstring{$<$}{<} Number of tokens we have encoded thus far
+
+\texorpdfstring{$<$}{<} Next position to write in the out buffer
+
+\texorpdfstring{$<$}{<} Variable to hold match locations
+
+\texorpdfstring{$<$}{<} Variable to hold match lengths, holds value MINMATCH \texorpdfstring{$>$}{>}= value \texorpdfstring{$<$}{<}= MAXMATCH\Hypertarget{lzss_8h_ade5b89bc78ce6ff4122dd1426be64be5}\index{lzss.h@{lzss.h}!lzss\_init\_context@{lzss\_init\_context}}
+\index{lzss\_init\_context@{lzss\_init\_context}!lzss.h@{lzss.h}}
+\doxysubsubsection{\texorpdfstring{lzss\_init\_context()}{lzss\_init\_context()}}
+{\footnotesize\ttfamily \label{lzss_8h_ade5b89bc78ce6ff4122dd1426be64be5} 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} lzss\+\_\+init\+\_\+context (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}}]{ctx}{, }\item[{size\+\_\+t}]{a\+\_\+worksize}{}\end{DoxyParamCaption})}
+
+
+
+Initialize a LZSS context. 
+
+Must be called before any other operations are attempted. This function allocates space for the internal buffers in the LZSS context.
+
+
+\begin{DoxyParams}[1]{Parameters}
+\mbox{\texttt{in}}  & {\em ctx} & Pointer to a LZSS context object \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+worksize} & Size in bytes of requested compression segment \\
+\hline
+\end{DoxyParams}
+\Hypertarget{lzss_8h_a8cf63d0edc97076d5e4a80f4601e2d18}\index{lzss.h@{lzss.h}!lzss\_prepare\_default\_dictionary@{lzss\_prepare\_default\_dictionary}}
+\index{lzss\_prepare\_default\_dictionary@{lzss\_prepare\_default\_dictionary}!lzss.h@{lzss.h}}
+\doxysubsubsection{\texorpdfstring{lzss\_prepare\_default\_dictionary()}{lzss\_prepare\_default\_dictionary()}}
+{\footnotesize\ttfamily \label{lzss_8h_a8cf63d0edc97076d5e4a80f4601e2d18} 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} lzss\+\_\+prepare\+\_\+default\+\_\+dictionary (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}}]{ctx}{, }\item[{uint8\+\_\+t \texorpdfstring{$\ast$}{*}}]{a\+\_\+buffer}{}\end{DoxyParamCaption})}
+
+
+
+Install the default seed dictionary into buffer. 
+
+The default dictionary above contains the most common English words, words used in programming and other technical disciplines, and commonly repeated bytes. \Hypertarget{lzss_8h_ae84edf797ca2bc7c19d3f52b05331666}\index{lzss.h@{lzss.h}!lzss\_prepare\_dictionary@{lzss\_prepare\_dictionary}}
+\index{lzss\_prepare\_dictionary@{lzss\_prepare\_dictionary}!lzss.h@{lzss.h}}
+\doxysubsubsection{\texorpdfstring{lzss\_prepare\_dictionary()}{lzss\_prepare\_dictionary()}}
+{\footnotesize\ttfamily \label{lzss_8h_ae84edf797ca2bc7c19d3f52b05331666} 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} lzss\+\_\+prepare\+\_\+dictionary (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}}]{ctx}{, }\item[{const uint8\+\_\+t \texorpdfstring{$\ast$}{*}}]{a\+\_\+seed}{, }\item[{size\+\_\+t}]{a\+\_\+seed\+\_\+len}{, }\item[{uint8\+\_\+t \texorpdfstring{$\ast$}{*}}]{a\+\_\+buffer}{}\end{DoxyParamCaption})}
+
+
+
+Install custom seed dictionary into buffer. 
+
+At the start of encoding, a typical LZSS system will have no window to call upon to find matches. It has to slowly build a window by sliding forward, and this can cause poor compression ratios in smaller files (less than 4095 bytes in length).
+
+My solution to this problem is to load up a custom "{}seed dictionary"{} to fill the space to the left of the window pointer while the window is creeping forward between 0 and (typically 4095) bytes. This will give the encoder some default values to reference, and hopefully find matches quicker. \Hypertarget{lzss_8h_ab19fbd15e98f2d17196c614e93d2bb1b}\index{lzss.h@{lzss.h}!lzss\_prepare\_pointer\_pool@{lzss\_prepare\_pointer\_pool}}
+\index{lzss\_prepare\_pointer\_pool@{lzss\_prepare\_pointer\_pool}!lzss.h@{lzss.h}}
+\doxysubsubsection{\texorpdfstring{lzss\_prepare\_pointer\_pool()}{lzss\_prepare\_pointer\_pool()}}
+{\footnotesize\ttfamily \label{lzss_8h_ab19fbd15e98f2d17196c614e93d2bb1b} 
+\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}} lzss\+\_\+prepare\+\_\+pointer\+\_\+pool (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structlzss__comp__ctx}{lzss\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}}]{ctx}{, }\item[{uint8\+\_\+t \texorpdfstring{$\ast$}{*}}]{a\+\_\+in}{, }\item[{size\+\_\+t}]{a\+\_\+in\+\_\+len}{}\end{DoxyParamCaption})}
+
+
+
+Count symbols and build pointer pool. 
+
+Call this after calling lzss\+\_\+prepare\+\_\+dictionary \Hypertarget{lzss_8h_ad57167af4c77f4c1377caa44a6acfc98}\index{lzss.h@{lzss.h}!lzss\_strerror@{lzss\_strerror}}
+\index{lzss\_strerror@{lzss\_strerror}!lzss.h@{lzss.h}}
+\doxysubsubsection{\texorpdfstring{lzss\_strerror()}{lzss\_strerror()}}
+{\footnotesize\ttfamily \label{lzss_8h_ad57167af4c77f4c1377caa44a6acfc98} 
+const char \texorpdfstring{$\ast$}{*} lzss\+\_\+strerror (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lzss_8h_a4942a378a89f0af5b9c1079debb1eff1}{lzss\+\_\+error\+\_\+t}}}]{a\+\_\+errno}{}\end{DoxyParamCaption})}
+
+
+
+Returns a char pointer to an existing error string Works in exactly the same way as the strerror(errno) function works in the standard library. 
+
+
+\begin{DoxyParams}[1]{Parameters}
+\mbox{\texttt{in}}  & {\em a\+\_\+errno} & The numerical error returned by the function \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+character pointer to error message 
+\end{DoxyReturn}

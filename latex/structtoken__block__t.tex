@@ -1,0 +1,33 @@
+\doxysection{token\+\_\+block\+\_\+t Struct Reference}
+\hypertarget{structtoken__block__t}{}\label{structtoken__block__t}\index{token\_block\_t@{token\_block\_t}}
+
+
+Block of 8 tokens awaiting write to output stream.  
+
+
+
+
+{\ttfamily \#include $<$lzss.\+h$>$}
+
+\doxysubsubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{structtoken__block__t_a5adbaebaf6a6e1e928378bddd613cae8}\label{structtoken__block__t_a5adbaebaf6a6e1e928378bddd613cae8} 
+int {\bfseries numflags}
+\begin{DoxyCompactList}\small\item\em Number of flags contained in the flags byte (below). \end{DoxyCompactList}\item 
+\Hypertarget{structtoken__block__t_a19826874f2d7aae3250d3603f71bdca0}\label{structtoken__block__t_a19826874f2d7aae3250d3603f71bdca0} 
+uint8\+\_\+t {\bfseries flags}
+\begin{DoxyCompactList}\small\item\em Flags for tokens\+: 0 = byte token, 1 = match token. \end{DoxyCompactList}\item 
+\Hypertarget{structtoken__block__t_a16a36c2c72f119a12134c6f3614570e3}\label{structtoken__block__t_a16a36c2c72f119a12134c6f3614570e3} 
+uint16\+\_\+t {\bfseries tokens} \mbox{[}8\mbox{]}
+\begin{DoxyCompactList}\small\item\em 8 tokens to write to compressed stream \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Block of 8 tokens awaiting write to output stream. 
+
+Used by the encoder, here is where it stores tokens on their way to output in order to write out all 8 flags in one single byte rather than writing out single bits. Using whole bytes saves a lot of time over using the cbit library to output individual bits. 
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{lzss_8h}{lzss.\+h}}\end{DoxyCompactItemize}

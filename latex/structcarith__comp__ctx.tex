@@ -1,0 +1,58 @@
+\doxysection{carith\+\_\+comp\+\_\+ctx Struct Reference}
+\hypertarget{structcarith__comp__ctx}{}\label{structcarith__comp__ctx}\index{carith\_comp\_ctx@{carith\_comp\_ctx}}
+\doxysubsubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{structcarith__comp__ctx_a27840df45c4ce41866a41ce84d80adfa}\label{structcarith__comp__ctx_a27840df45c4ce41866a41ce84d80adfa} 
+uint8\+\_\+t {\bfseries scheme}
+\begin{DoxyCompactList}\small\item\em compression chain specifier \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_a911606437c9643b0ba2890ce0e8dc02c}\label{structcarith__comp__ctx_a911606437c9643b0ba2890ce0e8dc02c} 
+uint32\+\_\+t {\bfseries block\+\_\+num}
+\begin{DoxyCompactList}\small\item\em Optional tag for block number, used by implementation. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_a8c168a666dd51ddb3cf29bcf230db647}\label{structcarith__comp__ctx_a8c168a666dd51ddb3cf29bcf230db647} 
+\mbox{\hyperlink{structcarith__freq__entry__t}{carith\+\_\+freq\+\_\+entry\+\_\+t}} {\bfseries freq} \mbox{[}256\mbox{]}
+\begin{DoxyCompactList}\small\item\em Frequency table, contains list of ranges for all possible symbols. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_aae7bdf342acee88ca01c02a26ba4945b}\label{structcarith__comp__ctx_aae7bdf342acee88ca01c02a26ba4945b} 
+uint8\+\_\+t {\bfseries freq\+\_\+comp} \mbox{[}1024\mbox{]}
+\begin{DoxyCompactList}\small\item\em Compressed frequency table, either enumerated or full. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_adefe942b30a8cf3dfa3cc8062504ce18}\label{structcarith__comp__ctx_adefe942b30a8cf3dfa3cc8062504ce18} 
+\mbox{\hyperlink{structcbit__cursor__t}{cbit\+\_\+cursor\+\_\+t}} {\bfseries bc}
+\begin{DoxyCompactList}\small\item\em Bit cursor used by carith to write out frequency tables. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_a59aa67ae681a5c5c4a7ca78411f80236}\label{structcarith__comp__ctx_a59aa67ae681a5c5c4a7ca78411f80236} 
+uint16\+\_\+t {\bfseries freq\+\_\+comp\+\_\+len}
+\begin{DoxyCompactList}\small\item\em Length of compressed frequency table. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_a77e0cbf6605397ee7fde2a0f2fea00bf}\label{structcarith__comp__ctx_a77e0cbf6605397ee7fde2a0f2fea00bf} 
+uint8\+\_\+t \texorpdfstring{$\ast$}{*} {\bfseries plain}
+\begin{DoxyCompactList}\small\item\em Buffer for plaintext to be compressed. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_a66c1b33f3ffa0debc7b870217ea5beb3}\label{structcarith__comp__ctx_a66c1b33f3ffa0debc7b870217ea5beb3} 
+size\+\_\+t {\bfseries plain\+\_\+len}
+\begin{DoxyCompactList}\small\item\em Plaintext length. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_a9705129074a772a5e1185a255dcd8462}\label{structcarith__comp__ctx_a9705129074a772a5e1185a255dcd8462} 
+uint8\+\_\+t \texorpdfstring{$\ast$}{*} {\bfseries rleenc}
+\begin{DoxyCompactList}\small\item\em Buffer for RLE encoded data. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_a6525cc5d3a2ced6849b695c5780f5376}\label{structcarith__comp__ctx_a6525cc5d3a2ced6849b695c5780f5376} 
+size\+\_\+t {\bfseries rle\+\_\+intermediate}
+\begin{DoxyCompactList}\small\item\em Size of plain smooshed to RLE, if specified in scheme. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_aa011665908d192dc5056957e29804afb}\label{structcarith__comp__ctx_aa011665908d192dc5056957e29804afb} 
+uint8\+\_\+t \texorpdfstring{$\ast$}{*} {\bfseries rledec}
+\begin{DoxyCompactList}\small\item\em Buffer for RLE decoded data. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_af552c4463c052943f7a8be9e29f11d73}\label{structcarith__comp__ctx_af552c4463c052943f7a8be9e29f11d73} 
+size\+\_\+t {\bfseries rledec\+\_\+len}
+\begin{DoxyCompactList}\small\item\em Length of RLE decoded data. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_ace5f3e6a302090af7c5ebf6529381489}\label{structcarith__comp__ctx_ace5f3e6a302090af7c5ebf6529381489} 
+uint8\+\_\+t \texorpdfstring{$\ast$}{*} {\bfseries comp}
+\begin{DoxyCompactList}\small\item\em Buffer for compressed tokens, larger than plaintext buffer to guard against over-\/ratio compresions. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_aa94c78631e34003df43efba09216b642}\label{structcarith__comp__ctx_aa94c78631e34003df43efba09216b642} 
+size\+\_\+t {\bfseries comp\+\_\+len}
+\begin{DoxyCompactList}\small\item\em Length of compressed token stream. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_af9e9925575f6c4ec80b92e1525926323}\label{structcarith__comp__ctx_af9e9925575f6c4ec80b92e1525926323} 
+uint8\+\_\+t \texorpdfstring{$\ast$}{*} {\bfseries decomp}
+\begin{DoxyCompactList}\small\item\em Buffer for decompressed data. \end{DoxyCompactList}\item 
+\Hypertarget{structcarith__comp__ctx_af5ec68c3f6ae579a3ed1bfd1246a8101}\label{structcarith__comp__ctx_af5ec68c3f6ae579a3ed1bfd1246a8101} 
+size\+\_\+t {\bfseries decomp\+\_\+len}
+\begin{DoxyCompactList}\small\item\em Length of decompressed data. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{carith_8h}{carith.\+h}}\end{DoxyCompactItemize}

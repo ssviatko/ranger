@@ -1,0 +1,45 @@
+\doxysection{color\+\_\+print.\+h}
+\hypertarget{color__print_8h_source}{}\label{color__print_8h_source}\mbox{\hyperlink{color__print_8h}{Go to the documentation of this file.}}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{00001\ }
+\DoxyCodeLine{00035\ }
+\DoxyCodeLine{00036\ \textcolor{preprocessor}{\#ifndef\ COLOR\_PRINT\_H}}
+\DoxyCodeLine{00037\ \textcolor{preprocessor}{\#define\ COLOR\_PRINT\_H}}
+\DoxyCodeLine{00038\ }
+\DoxyCodeLine{00039\ \textcolor{preprocessor}{\#ifdef\ \_\_cplusplus}}
+\DoxyCodeLine{00040\ \textcolor{keyword}{extern}\ \textcolor{stringliteral}{"{}C"{}}\ \{}
+\DoxyCodeLine{00041\ \textcolor{preprocessor}{\#endif}}
+\DoxyCodeLine{00042\ }
+\DoxyCodeLine{00043\ \textcolor{preprocessor}{\#include\ <stdio.h>}}
+\DoxyCodeLine{00044\ \textcolor{preprocessor}{\#include\ <string.h>}}
+\DoxyCodeLine{00045\ \textcolor{preprocessor}{\#include\ <errno.h>}}
+\DoxyCodeLine{00046\ \textcolor{preprocessor}{\#include\ <stdarg.h>}}
+\DoxyCodeLine{00047\ \textcolor{preprocessor}{\#include\ <stdint.h>}}
+\DoxyCodeLine{00048\ \textcolor{preprocessor}{\#include\ <pthread.h>}}
+\DoxyCodeLine{00049\ }
+\DoxyCodeLine{00050\ \textcolor{preprocessor}{\#define\ BUFFLEN\ 1024}}
+\DoxyCodeLine{00051\ }
+\DoxyCodeLine{00052\ \textcolor{comment}{/*\ GREEN\ theme\ */}}
+\DoxyCodeLine{00053\ \textcolor{preprocessor}{\#define\ CP\_GREEN\_COLOR\_HEADING\ \ \ "{}\(\backslash\)033[32m"{}\ \ \ \ \ \ \ \ \ \ }}
+\DoxyCodeLine{00054\ \textcolor{preprocessor}{\#define\ CP\_GREEN\_COLOR\_ERROR\ \ \ \ \ "{}\(\backslash\)033[91m"{}\ \ \ \ \ \ \ \ \ \ }}
+\DoxyCodeLine{00055\ \textcolor{preprocessor}{\#define\ CP\_GREEN\_COLOR\_HIGHLIGHT\ "{}\(\backslash\)033[92m"{}\ \ \ \ \ \ \ \ \ \ }}
+\DoxyCodeLine{00056\ \textcolor{preprocessor}{\#define\ CP\_GREEN\_COLOR\_BULLET\ \ \ \ "{}\(\backslash\)033[93m"{}\ \ \ \ \ \ \ \ \ \ }}
+\DoxyCodeLine{00057\ \textcolor{preprocessor}{\#define\ CP\_GREEN\_COLOR\_DEFAULT\ \ \ "{}\(\backslash\)033[39m\(\backslash\)033[49m"{}\ \ }}
+\DoxyCodeLine{00058\ \textcolor{preprocessor}{\#define\ CP\_GREEN\_COLOR\_DEBUG\ \ \ \ \ "{}\(\backslash\)033[33m"{}\ \ \ \ \ \ \ \ \ \ }}
+\DoxyCodeLine{00059\ }
+\DoxyCodeLine{00060\ \textcolor{keywordtype}{void}\ color\_init\ \ \ \ \ \ \ \ \ (\textcolor{keyword}{const}\ \textcolor{keywordtype}{int}\ a\_nocolor,\ \textcolor{keyword}{const}\ \textcolor{keywordtype}{int}\ a\_debug);}
+\DoxyCodeLine{00061\ \textcolor{keywordtype}{void}\ color\_free();}
+\DoxyCodeLine{00062\ \textcolor{keywordtype}{void}\ color\_progress\ \ \ \ \ (uint32\_t\ a\_sofar,\ uint32\_t\ a\_total);}
+\DoxyCodeLine{00063\ \textcolor{keywordtype}{void}\ color\_printf\ \ \ \ \ \ \ (\textcolor{keyword}{const}\ \textcolor{keywordtype}{char}\ *format,\ ...);}
+\DoxyCodeLine{00064\ \textcolor{keywordtype}{void}\ color\_err\_printf\ \ \ (\textcolor{keywordtype}{int}\ a\_strerror,\ \textcolor{keyword}{const}\ \textcolor{keywordtype}{char}\ *format,\ ...);}
+\DoxyCodeLine{00065\ \textcolor{keywordtype}{void}\ color\_debug\ \ \ \ \ \ \ \ (\textcolor{keyword}{const}\ \textcolor{keywordtype}{char}\ *format,\ ...);}
+\DoxyCodeLine{00066\ }
+\DoxyCodeLine{00067\ }
+\DoxyCodeLine{00068\ }
+\DoxyCodeLine{00069\ \textcolor{preprocessor}{\#ifdef\ \_\_cplusplus}}
+\DoxyCodeLine{00070\ \}}
+\DoxyCodeLine{00071\ \textcolor{preprocessor}{\#endif}}
+\DoxyCodeLine{00072\ }
+\DoxyCodeLine{00073\ \textcolor{preprocessor}{\#endif\ }\textcolor{comment}{//\ COLOR\_PRINT\_H}}
+
+\end{DoxyCode}

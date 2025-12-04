@@ -1,0 +1,139 @@
+\doxysection{cbit.\+c File Reference}
+\hypertarget{cbit_8c}{}\label{cbit_8c}\index{cbit.c@{cbit.c}}
+
+
+C Bit Read/\+Write API.  
+
+
+{\ttfamily \#include "{}cbit.\+h"{}}\newline
+\doxysubsubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \mbox{\hyperlink{cbit_8c_ab51a31fbf4f8bbb9efaa33c37ae22fd9}{cbit\+\_\+write}} (\mbox{\hyperlink{structcbit__cursor__t}{cbit\+\_\+cursor\+\_\+t}} \texorpdfstring{$\ast$}{*}a\+\_\+cursor, unsigned int a\+\_\+bit)
+\begin{DoxyCompactList}\small\item\em Write a single bit at current cursor position. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{cbit_8c_a71e2c3dae274a582c39a12230fe1ab44}{cbit\+\_\+write\+\_\+many}} (\mbox{\hyperlink{structcbit__cursor__t}{cbit\+\_\+cursor\+\_\+t}} \texorpdfstring{$\ast$}{*}a\+\_\+cursor, uint64\+\_\+t a\+\_\+bits, uint16\+\_\+t a\+\_\+count)
+\begin{DoxyCompactList}\small\item\em Write many bits at current cursor position. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{cbit_8c_a5e2648fa4c91cb22d823696551b806ce}{cbit\+\_\+read}} (\mbox{\hyperlink{structcbit__cursor__t}{cbit\+\_\+cursor\+\_\+t}} \texorpdfstring{$\ast$}{*}a\+\_\+cursor)
+\begin{DoxyCompactList}\small\item\em Read single bit at cursor position. \end{DoxyCompactList}\item 
+uint64\+\_\+t \mbox{\hyperlink{cbit_8c_a099527c0fc92fab59deadcd3910caeb6}{cbit\+\_\+read\+\_\+many}} (\mbox{\hyperlink{structcbit__cursor__t}{cbit\+\_\+cursor\+\_\+t}} \texorpdfstring{$\ast$}{*}a\+\_\+cursor, uint16\+\_\+t a\+\_\+count)
+\begin{DoxyCompactList}\small\item\em Read many bits at current cursor position. \end{DoxyCompactList}\item 
+uint16\+\_\+t \mbox{\hyperlink{cbit_8c_ad0576de9f4c9a0b03a3cdc5f8cb91855}{cbit\+\_\+bit\+\_\+width}} (uint64\+\_\+t a\+\_\+val)
+\begin{DoxyCompactList}\small\item\em Discover how many bits wide an integer value is. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{cbit_8c_a5d72ad211f34b63dce895020c342282a}\label{cbit_8c_a5d72ad211f34b63dce895020c342282a} 
+static uint8\+\_\+t {\bfseries cbit\+\_\+byte\+\_\+mask} \mbox{[}$\,$\mbox{]} = \{ 0xfe, 0xfd, 0xfb, 0xf7, 0xef, 0xdf, 0xbf, 0x7f \}
+\begin{DoxyCompactList}\small\item\em Byte mask to mask off requested bit. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+C Bit Read/\+Write API. 
+
+C Bit Read/\+Write Library 2025/\+Nov/23 -\/ Revision 0.\+80 alpha
+
+Created by\+: Stephen Sviatko
+
+(C) 2025 Good Neighbors LLC -\/ All Rights Reserved, except where noted
+
+This file and any intellectual property (designs, algorithms, formulas, procedures, trademarks, and related documentation) contained herein are property of Good Neighbors, an Arizona Limited Liability Company.
+
+LICENSING INFORMATION
+
+This file may not be distributed in any modified form without expressed written permission of Good Neighbors LLC or its regents. Permission is granted to use this file in any non-\/commercial, non-\/governmental capacity (such as student projects, hobby projects, etc) without an official licensing agreement as long as the original author(s) are credited in any derivative work.
+
+Commercial licensing of this content is available, any agreement must include consulting services as part of a deployment strategy. For more information, please contact Stephen Sviatko at the following email address\+:
+
+\href{mailto:ssviatko@gmail.com}{\texttt{ssviatko@gmail.\+com}}
+
+Enables the reading/writing of individual bits or sequences of bits to a buffer. 
+
+\label{doc-func-members}
+\Hypertarget{cbit_8c_doc-func-members}
+\doxysubsection{Function Documentation}
+\Hypertarget{cbit_8c_ad0576de9f4c9a0b03a3cdc5f8cb91855}\index{cbit.c@{cbit.c}!cbit\_bit\_width@{cbit\_bit\_width}}
+\index{cbit\_bit\_width@{cbit\_bit\_width}!cbit.c@{cbit.c}}
+\doxysubsubsection{\texorpdfstring{cbit\_bit\_width()}{cbit\_bit\_width()}}
+{\footnotesize\ttfamily \label{cbit_8c_ad0576de9f4c9a0b03a3cdc5f8cb91855} 
+uint16\+\_\+t cbit\+\_\+bit\+\_\+width (\begin{DoxyParamCaption}\item[{uint64\+\_\+t}]{a\+\_\+val}{}\end{DoxyParamCaption})}
+
+
+
+Discover how many bits wide an integer value is. 
+
+
+\begin{DoxyParams}[1]{Parameters}
+\mbox{\texttt{in}}  & {\em a\+\_\+val} & Integer value to test\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+Number of bits that can contain the value, expressed as an unsigned short. 
+\end{DoxyReturn}
+\Hypertarget{cbit_8c_a5e2648fa4c91cb22d823696551b806ce}\index{cbit.c@{cbit.c}!cbit\_read@{cbit\_read}}
+\index{cbit\_read@{cbit\_read}!cbit.c@{cbit.c}}
+\doxysubsubsection{\texorpdfstring{cbit\_read()}{cbit\_read()}}
+{\footnotesize\ttfamily \label{cbit_8c_a5e2648fa4c91cb22d823696551b806ce} 
+int cbit\+\_\+read (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structcbit__cursor__t}{cbit\+\_\+cursor\+\_\+t}} \texorpdfstring{$\ast$}{*}}]{a\+\_\+cursor}{}\end{DoxyParamCaption})}
+
+
+
+Read single bit at cursor position. 
+
+
+\begin{DoxyParams}[1]{Parameters}
+\mbox{\texttt{in}}  & {\em a\+\_\+cursor} & Pointer to cursor to use \\
+\hline
+\end{DoxyParams}
+\Hypertarget{cbit_8c_a099527c0fc92fab59deadcd3910caeb6}\index{cbit.c@{cbit.c}!cbit\_read\_many@{cbit\_read\_many}}
+\index{cbit\_read\_many@{cbit\_read\_many}!cbit.c@{cbit.c}}
+\doxysubsubsection{\texorpdfstring{cbit\_read\_many()}{cbit\_read\_many()}}
+{\footnotesize\ttfamily \label{cbit_8c_a099527c0fc92fab59deadcd3910caeb6} 
+uint64\+\_\+t cbit\+\_\+read\+\_\+many (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structcbit__cursor__t}{cbit\+\_\+cursor\+\_\+t}} \texorpdfstring{$\ast$}{*}}]{a\+\_\+cursor}{, }\item[{uint16\+\_\+t}]{a\+\_\+count}{}\end{DoxyParamCaption})}
+
+
+
+Read many bits at current cursor position. 
+
+
+\begin{DoxyParams}[1]{Parameters}
+\mbox{\texttt{in}}  & {\em a\+\_\+cursor} & Pointer to cursor to use \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+count} & Number of bits to read \\
+\hline
+\end{DoxyParams}
+\Hypertarget{cbit_8c_ab51a31fbf4f8bbb9efaa33c37ae22fd9}\index{cbit.c@{cbit.c}!cbit\_write@{cbit\_write}}
+\index{cbit\_write@{cbit\_write}!cbit.c@{cbit.c}}
+\doxysubsubsection{\texorpdfstring{cbit\_write()}{cbit\_write()}}
+{\footnotesize\ttfamily \label{cbit_8c_ab51a31fbf4f8bbb9efaa33c37ae22fd9} 
+void cbit\+\_\+write (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structcbit__cursor__t}{cbit\+\_\+cursor\+\_\+t}} \texorpdfstring{$\ast$}{*}}]{a\+\_\+cursor}{, }\item[{unsigned int}]{a\+\_\+bit}{}\end{DoxyParamCaption})}
+
+
+
+Write a single bit at current cursor position. 
+
+
+\begin{DoxyParams}[1]{Parameters}
+\mbox{\texttt{in}}  & {\em a\+\_\+cursor} & Pointr to the cursor to use \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+bit} & Integer value 0=false 1=true \\
+\hline
+\end{DoxyParams}
+\Hypertarget{cbit_8c_a71e2c3dae274a582c39a12230fe1ab44}\index{cbit.c@{cbit.c}!cbit\_write\_many@{cbit\_write\_many}}
+\index{cbit\_write\_many@{cbit\_write\_many}!cbit.c@{cbit.c}}
+\doxysubsubsection{\texorpdfstring{cbit\_write\_many()}{cbit\_write\_many()}}
+{\footnotesize\ttfamily \label{cbit_8c_a71e2c3dae274a582c39a12230fe1ab44} 
+void cbit\+\_\+write\+\_\+many (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structcbit__cursor__t}{cbit\+\_\+cursor\+\_\+t}} \texorpdfstring{$\ast$}{*}}]{a\+\_\+cursor}{, }\item[{uint64\+\_\+t}]{a\+\_\+bits}{, }\item[{uint16\+\_\+t}]{a\+\_\+count}{}\end{DoxyParamCaption})}
+
+
+
+Write many bits at current cursor position. 
+
+
+\begin{DoxyParams}[1]{Parameters}
+\mbox{\texttt{in}}  & {\em a\+\_\+cursor} & Pointer to cursor to use \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+bits} & Integer containing bits to write \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+count} & Number of bits to write \\
+\hline
+\end{DoxyParams}

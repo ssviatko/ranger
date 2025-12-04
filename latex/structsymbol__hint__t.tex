@@ -1,0 +1,38 @@
+\doxysection{symbol\+\_\+hint\+\_\+t Struct Reference}
+\hypertarget{structsymbol__hint__t}{}\label{structsymbol__hint__t}\index{symbol\_hint\_t@{symbol\_hint\_t}}
+
+
+Definition of a symbol hint.  
+
+
+
+
+{\ttfamily \#include $<$lzss.\+h$>$}
+
+\doxysubsubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{structsymbol__hint__t_ad960486e75d78b23c152168a6ac3c99f}\label{structsymbol__hint__t_ad960486e75d78b23c152168a6ac3c99f} 
+uint32\+\_\+t {\bfseries count\+\_\+base}
+\begin{DoxyCompactList}\small\item\em Beginning of symbol\textquotesingle{}s spread in pointer pool. \end{DoxyCompactList}\item 
+\Hypertarget{structsymbol__hint__t_a819e6a077daf98a079b6919bf3d588c0}\label{structsymbol__hint__t_a819e6a077daf98a079b6919bf3d588c0} 
+uint32\+\_\+t {\bfseries search\+\_\+base}
+\begin{DoxyCompactList}\small\item\em This pointer moves forward as we slide the window. \end{DoxyCompactList}\item 
+\Hypertarget{structsymbol__hint__t_a6339b4fa8810953c9f64e538b01e46b1}\label{structsymbol__hint__t_a6339b4fa8810953c9f64e538b01e46b1} 
+uint32\+\_\+t {\bfseries count}
+\begin{DoxyCompactList}\small\item\em Total number of occurrances of this symbol. \end{DoxyCompactList}\item 
+\Hypertarget{structsymbol__hint__t_a343e92e184c9a3c0718f8e5bc2570f05}\label{structsymbol__hint__t_a343e92e184c9a3c0718f8e5bc2570f05} 
+uint32\+\_\+t {\bfseries next\+\_\+pool\+\_\+loc}
+\begin{DoxyCompactList}\small\item\em starts at zero, counts up to count -\/ 1, points to next location in pointer\+\_\+pool to write pointer (count\+\_\+base + next\+\_\+pool\+\_\+loc) \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Definition of a symbol hint. 
+
+An array of 256 of these is kept in the context, it is used to tabulate the counts of every symbol in the buffer (including the dictionary itself), along with a pointer to start locations in the pointer\+\_\+pool (also contained in the context) which contains pointers to locations in the buffer where the symbol occurs. Think of count\+\_\+base/search\+\_\+base as "{}pointers to pointers"{} to hopefully eliminate confusion.
+
+count\+\_\+base contains the starting base location in the pointer pool to start looking for a symbol. As the window slides forward, some "{}early"{} symbols in the pointer pool will become unnecessary as we have already passed them. So, the next time we search for the same symbol, we don\textquotesingle{}t want to trip over these obsolete references, so search\+\_\+base is used instead. count\+\_\+base and search\+\_\+base are both initialized to the same value, except when we encounter an obsolete symbol, search\+\_\+base is incremented, count is decre-\/ mented, and the next time through the loop we will start at the next pointer after the obsolete one. This continues on and on as we slide the window through the buffer until the end. 
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{lzss_8h}{lzss.\+h}}\end{DoxyCompactItemize}

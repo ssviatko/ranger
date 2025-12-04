@@ -1,0 +1,39 @@
+\doxysection{rle.\+c File Reference}
+\hypertarget{rle_8c}{}\label{rle_8c}\index{rle.c@{rle.c}}
+
+
+Run Length Encoder API.  
+
+
+{\ttfamily \#include "{}rle.\+h"{}}\newline
+\doxysubsubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{rle_8c_a2eae7ff1eb12f3f20ba4679f12185ed9}\label{rle_8c_a2eae7ff1eb12f3f20ba4679f12185ed9} 
+void {\bfseries rle\+\_\+encode} (uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+in, uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+out, size\+\_\+t a\+\_\+insize, size\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+outsize)
+\item 
+\Hypertarget{rle_8c_a9ae28dc562803745abbde33f1aab806c}\label{rle_8c_a9ae28dc562803745abbde33f1aab806c} 
+void {\bfseries rle\+\_\+decode} (uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+in, uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+out, size\+\_\+t a\+\_\+insize, size\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+outsize)
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Run Length Encoder API. 
+
+Run Length Encoder/\+Decoder API 2025/\+Nov/23 -\/ Revision 0.\+80 alpha
+
+Created by\+: Stephen Sviatko
+
+(C) 2025 Good Neighbors LLC -\/ All Rights Reserved, except where noted
+
+This file and any intellectual property (designs, algorithms, formulas, procedures, trademarks, and related documentation) contained herein are property of Good Neighbors, an Arizona Limited Liability Company.
+
+LICENSING INFORMATION
+
+This file may not be distributed in any modified form without expressed written permission of Good Neighbors LLC or its regents. Permission is granted to use this file in any non-\/commercial, non-\/governmental capacity (such as student projects, hobby projects, etc) without an official licensing agreement as long as the original author(s) are credited in any derivative work.
+
+Commercial licensing of this content is available, any agreement must include consulting services as part of a deployment strategy. For more information, please contact Stephen Sviatko at the following email address\+:
+
+\href{mailto:ssviatko@gmail.com}{\texttt{ssviatko@gmail.\+com}}
+
+Compresses data by removing runs of repeated characters. 

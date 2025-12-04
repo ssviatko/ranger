@@ -1,0 +1,42 @@
+\doxysection{crc32.\+c File Reference}
+\hypertarget{crc32_8c}{}\label{crc32_8c}\index{crc32.c@{crc32.c}}
+
+
+CRC32 API.  
+
+
+{\ttfamily \#include "{}crc32.\+h"{}}\newline
+\doxysubsubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{crc32_8c_aa1c7b2b53eb14502ee686c94c6cadbe8}\label{crc32_8c_aa1c7b2b53eb14502ee686c94c6cadbe8} 
+uint32\+\_\+t {\bfseries get\+\_\+buffer\+\_\+crc} (uint32\+\_\+t a\+\_\+crcin, uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+buff, size\+\_\+t a\+\_\+len)
+\end{DoxyCompactItemize}
+\doxysubsubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{crc32_8c_a2e26964bb6b0f3f5a35e946560323447}\label{crc32_8c_a2e26964bb6b0f3f5a35e946560323447} 
+static uint32\+\_\+t {\bfseries g\+\_\+crc32\+\_\+tab} \mbox{[}$\,$\mbox{]}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+CRC32 API. 
+
+CRC32 Library 2025/\+Nov/23 -\/ Revision 0.\+80 alpha
+
+Created by\+: Stephen Sviatko
+
+(C) 2025 Good Neighbors LLC -\/ All Rights Reserved, except where noted
+
+This file and any intellectual property (designs, algorithms, formulas, procedures, trademarks, and related documentation) contained herein are property of Good Neighbors, an Arizona Limited Liability Company.
+
+LICENSING INFORMATION
+
+This file may not be distributed in any modified form without expressed written permission of Good Neighbors LLC or its regents. Permission is granted to use this file in any non-\/commercial, non-\/governmental capacity (such as student projects, hobby projects, etc) without an official licensing agreement as long as the original author(s) are credited in any derivative work.
+
+Commercial licensing of this content is available, any agreement must include consulting services as part of a deployment strategy. For more information, please contact Stephen Sviatko at the following email address\+:
+
+\href{mailto:ssviatko@gmail.com}{\texttt{ssviatko@gmail.\+com}}
+
+Computes a rolling CRC32 on a buffer. 

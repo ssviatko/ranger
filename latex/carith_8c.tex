@@ -1,0 +1,122 @@
+\doxysection{carith.\+c File Reference}
+\hypertarget{carith_8c}{}\label{carith_8c}\index{carith.c@{carith.c}}
+
+
+C Arithmetic Coder API.  
+
+
+{\ttfamily \#include "{}carith.\+h"{}}\newline
+\doxysubsubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{carith_8c_ae32dac63e047f9d5de2a6120924fbe80}\label{carith_8c_ae32dac63e047f9d5de2a6120924fbe80} 
+static void {\bfseries freq\+\_\+count} (\mbox{\hyperlink{structcarith__comp__ctx}{carith\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx, uint8\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+buff, size\+\_\+t a\+\_\+source\+\_\+size)
+\item 
+\Hypertarget{carith_8c_abbc75979cb6937ba43597e1907762acb}\label{carith_8c_abbc75979cb6937ba43597e1907762acb} 
+static void {\bfseries retrieve\+\_\+range} (\mbox{\hyperlink{structcarith__comp__ctx}{carith\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx, uint8\+\_\+t a\+\_\+token, uint64\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+start, uint64\+\_\+t \texorpdfstring{$\ast$}{*}a\+\_\+end, size\+\_\+t a\+\_\+source\+\_\+size)
+\item 
+\Hypertarget{carith_8c_a0781e4092cb7a423fb20ec813945b710}\label{carith_8c_a0781e4092cb7a423fb20ec813945b710} 
+static uint8\+\_\+t {\bfseries token\+\_\+for\+\_\+window} (\mbox{\hyperlink{structcarith__comp__ctx}{carith\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx, uint64\+\_\+t a\+\_\+window, uint64\+\_\+t a\+\_\+start, uint64\+\_\+t a\+\_\+end, size\+\_\+t a\+\_\+source\+\_\+size)
+\item 
+const char \texorpdfstring{$\ast$}{*} \mbox{\hyperlink{carith_8c_a8ac24bff2be148276f6274d578b99112}{carith\+\_\+strerror}} (\mbox{\hyperlink{carith_8h_a6dcbd35fb5bdd6b9a7e1f1c839c47b09}{carith\+\_\+error\+\_\+t}} a\+\_\+errno)
+\begin{DoxyCompactList}\small\item\em Returns a char pointer to an existing error string Works in exactly the same way as the strerror(errno) function works in the standard library. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{carith_8h_a6dcbd35fb5bdd6b9a7e1f1c839c47b09}{carith\+\_\+error\+\_\+t}} \mbox{\hyperlink{carith_8c_addc200d0800bfa758e4aecc2008754e4}{carith\+\_\+init\+\_\+ctx}} (\mbox{\hyperlink{structcarith__comp__ctx}{carith\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx, size\+\_\+t a\+\_\+worksize)
+\begin{DoxyCompactList}\small\item\em Initialize a carith context Must be called before any other operations are attempted. This function allocates space for the internal buffers in the carith context. \end{DoxyCompactList}\item 
+\Hypertarget{carith_8c_a8897a068da7a6d8e4b98f9ec5faa4cbc}\label{carith_8c_a8897a068da7a6d8e4b98f9ec5faa4cbc} 
+\mbox{\hyperlink{carith_8h_a6dcbd35fb5bdd6b9a7e1f1c839c47b09}{carith\+\_\+error\+\_\+t}} {\bfseries carith\+\_\+free\+\_\+ctx} (\mbox{\hyperlink{structcarith__comp__ctx}{carith\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx)
+\begin{DoxyCompactList}\small\item\em Free a carith context Release all allocated memory. \end{DoxyCompactList}\item 
+\Hypertarget{carith_8c_ae67ff8e24bd3c13e19d20a8ddf73effb}\label{carith_8c_ae67ff8e24bd3c13e19d20a8ddf73effb} 
+\mbox{\hyperlink{carith_8h_a6dcbd35fb5bdd6b9a7e1f1c839c47b09}{carith\+\_\+error\+\_\+t}} {\bfseries carith\+\_\+compress} (\mbox{\hyperlink{structcarith__comp__ctx}{carith\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx)
+\begin{DoxyCompactList}\small\item\em Compress plain buffer into comp buffer. \end{DoxyCompactList}\item 
+\Hypertarget{carith_8c_ad49e3a227a082d325054470d7c0d8fde}\label{carith_8c_ad49e3a227a082d325054470d7c0d8fde} 
+\mbox{\hyperlink{carith_8h_a6dcbd35fb5bdd6b9a7e1f1c839c47b09}{carith\+\_\+error\+\_\+t}} {\bfseries carith\+\_\+extract} (\mbox{\hyperlink{structcarith__comp__ctx}{carith\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}ctx)
+\begin{DoxyCompactList}\small\item\em Decompress comp buffer into decomp buffer. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+const char \texorpdfstring{$\ast$}{*} \mbox{\hyperlink{carith_8c_adfd3b807b8a8ec65e49142b766b24164}{carith\+\_\+error\+\_\+string}} \mbox{[}$\,$\mbox{]}
+\begin{DoxyCompactList}\small\item\em List of standard carith error strings correlated to integer carith error codes. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+C Arithmetic Coder API. 
+
+C Arithmetic Coder 2025/\+Nov/23 -\/ Revision 0.\+80 alpha
+
+Created by\+: Stephen Sviatko
+
+(C) 2025 Good Neighbors LLC -\/ All Rights Reserved, except where noted
+
+This file and any intellectual property (designs, algorithms, formulas, procedures, trademarks, and related documentation) contained herein are property of Good Neighbors, an Arizona Limited Liability Company.
+
+LICENSING INFORMATION
+
+This file may not be distributed in any modified form without expressed written permission of Good Neighbors LLC or its regents. Permission is granted to use this file in any non-\/commercial, non-\/governmental capacity (such as student projects, hobby projects, etc) without an official licensing agreement as long as the original author(s) are credited in any derivative work.
+
+Commercial licensing of this content is available, any agreement must include consulting services as part of a deployment strategy. For more information, please contact Stephen Sviatko at the following email address\+:
+
+\href{mailto:ssviatko@gmail.com}{\texttt{ssviatko@gmail.\+com}}
+
+This file implements the core functionalty of the C Arithmetic Coder. 
+
+\label{doc-func-members}
+\Hypertarget{carith_8c_doc-func-members}
+\doxysubsection{Function Documentation}
+\Hypertarget{carith_8c_addc200d0800bfa758e4aecc2008754e4}\index{carith.c@{carith.c}!carith\_init\_ctx@{carith\_init\_ctx}}
+\index{carith\_init\_ctx@{carith\_init\_ctx}!carith.c@{carith.c}}
+\doxysubsubsection{\texorpdfstring{carith\_init\_ctx()}{carith\_init\_ctx()}}
+{\footnotesize\ttfamily \label{carith_8c_addc200d0800bfa758e4aecc2008754e4} 
+\mbox{\hyperlink{carith_8h_a6dcbd35fb5bdd6b9a7e1f1c839c47b09}{carith\+\_\+error\+\_\+t}} carith\+\_\+init\+\_\+ctx (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structcarith__comp__ctx}{carith\+\_\+comp\+\_\+ctx}} \texorpdfstring{$\ast$}{*}}]{ctx}{, }\item[{size\+\_\+t}]{a\+\_\+worksize}{}\end{DoxyParamCaption})}
+
+
+
+Initialize a carith context Must be called before any other operations are attempted. This function allocates space for the internal buffers in the carith context. 
+
+
+\begin{DoxyParams}[1]{Parameters}
+\mbox{\texttt{in}}  & {\em ctx} & Pointer to a carith context object pointer \\
+\hline
+\mbox{\texttt{in}}  & {\em a\+\_\+worksize} & Size in bytes of requested compression segment \\
+\hline
+\end{DoxyParams}
+\Hypertarget{carith_8c_a8ac24bff2be148276f6274d578b99112}\index{carith.c@{carith.c}!carith\_strerror@{carith\_strerror}}
+\index{carith\_strerror@{carith\_strerror}!carith.c@{carith.c}}
+\doxysubsubsection{\texorpdfstring{carith\_strerror()}{carith\_strerror()}}
+{\footnotesize\ttfamily \label{carith_8c_a8ac24bff2be148276f6274d578b99112} 
+const char \texorpdfstring{$\ast$}{*} carith\+\_\+strerror (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{carith_8h_a6dcbd35fb5bdd6b9a7e1f1c839c47b09}{carith\+\_\+error\+\_\+t}}}]{a\+\_\+errno}{}\end{DoxyParamCaption})}
+
+
+
+Returns a char pointer to an existing error string Works in exactly the same way as the strerror(errno) function works in the standard library. 
+
+
+\begin{DoxyParams}[1]{Parameters}
+\mbox{\texttt{in}}  & {\em a\+\_\+errno} & The numerical error returned by the function \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+character pointer to error message 
+\end{DoxyReturn}
+
+
+\label{doc-var-members}
+\Hypertarget{carith_8c_doc-var-members}
+\doxysubsection{Variable Documentation}
+\Hypertarget{carith_8c_adfd3b807b8a8ec65e49142b766b24164}\index{carith.c@{carith.c}!carith\_error\_string@{carith\_error\_string}}
+\index{carith\_error\_string@{carith\_error\_string}!carith.c@{carith.c}}
+\doxysubsubsection{\texorpdfstring{carith\_error\_string}{carith\_error\_string}}
+{\footnotesize\ttfamily \label{carith_8c_adfd3b807b8a8ec65e49142b766b24164} 
+const char\texorpdfstring{$\ast$}{*} carith\+\_\+error\+\_\+string\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{=\ \{}
+\DoxyCodeLine{\ \ \ \ \textcolor{stringliteral}{"{}none"{}},}
+\DoxyCodeLine{\ \ \ \ \textcolor{stringliteral}{"{}memory\ allocation\ error"{}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+
+
+List of standard carith error strings correlated to integer carith error codes. 
+

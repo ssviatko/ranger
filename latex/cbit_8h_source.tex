@@ -1,0 +1,38 @@
+\doxysection{cbit.\+h}
+\hypertarget{cbit_8h_source}{}\label{cbit_8h_source}\mbox{\hyperlink{cbit_8h}{Go to the documentation of this file.}}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{00001\ }
+\DoxyCodeLine{00036\ }
+\DoxyCodeLine{00037\ \textcolor{preprocessor}{\#ifndef\ CBIT\_H}}
+\DoxyCodeLine{00038\ \textcolor{preprocessor}{\#define\ CBIT\_H}}
+\DoxyCodeLine{00039\ }
+\DoxyCodeLine{00040\ \textcolor{preprocessor}{\#ifdef\ \_\_cplusplus}}
+\DoxyCodeLine{00041\ \textcolor{keyword}{extern}\ \textcolor{stringliteral}{"{}C"{}}\ \{}
+\DoxyCodeLine{00042\ \textcolor{preprocessor}{\#endif}}
+\DoxyCodeLine{00043\ }
+\DoxyCodeLine{00044\ \textcolor{preprocessor}{\#pragma\ pack(1)}}
+\DoxyCodeLine{00045\ }
+\DoxyCodeLine{00046\ \textcolor{preprocessor}{\#include\ <stdio.h>}}
+\DoxyCodeLine{00047\ \textcolor{preprocessor}{\#include\ <stdlib.h>}}
+\DoxyCodeLine{00048\ \textcolor{preprocessor}{\#include\ <stdint.h>}}
+\DoxyCodeLine{00049\ }
+\DoxyCodeLine{00057\ }
+\DoxyCodeLine{00058\ \textcolor{keyword}{typedef}\ \textcolor{keyword}{struct\ }\{}
+\DoxyCodeLine{00059\ \ \ \ \ uint64\_t\ \mbox{\hyperlink{structcbit__cursor__t_ac7cab2eb4eb21c32bfbe1e0dd8668ee9}{byte}};\ \ \ }
+\DoxyCodeLine{00060\ \ \ \ \ uint8\_t\ \ \mbox{\hyperlink{structcbit__cursor__t_a2e8be95b2cd5dbf356887e4c37c64ae7}{bit}};\ \ \ \ }
+\DoxyCodeLine{00061\ \ \ \ \ uint8\_t\ *\mbox{\hyperlink{structcbit__cursor__t_a80a99cf848cede4c43f50c2eec08c64f}{buffer}};\ }
+\DoxyCodeLine{00062\ \}\ \mbox{\hyperlink{structcbit__cursor__t}{cbit\_cursor\_t}};}
+\DoxyCodeLine{00063\ }
+\DoxyCodeLine{00064\ \textcolor{keywordtype}{void}\ \ \ \ \ \mbox{\hyperlink{cbit_8h_ab51a31fbf4f8bbb9efaa33c37ae22fd9}{cbit\_write}}\ \ \ \ \ \ \ \ \ (\mbox{\hyperlink{structcbit__cursor__t}{cbit\_cursor\_t}}\ *a\_cursor,\ \textcolor{keywordtype}{unsigned}\ \textcolor{keywordtype}{int}\ a\_bit);}
+\DoxyCodeLine{00065\ \textcolor{keywordtype}{void}\ \ \ \ \ \mbox{\hyperlink{cbit_8h_a71e2c3dae274a582c39a12230fe1ab44}{cbit\_write\_many}}\ \ \ \ (\mbox{\hyperlink{structcbit__cursor__t}{cbit\_cursor\_t}}\ *a\_cursor,\ uint64\_t\ a\_bits,\ uint16\_t\ a\_count);}
+\DoxyCodeLine{00066\ \textcolor{keywordtype}{int}\ \ \ \ \ \ \mbox{\hyperlink{cbit_8h_a5e2648fa4c91cb22d823696551b806ce}{cbit\_read}}\ \ \ \ \ \ \ \ \ \ (\mbox{\hyperlink{structcbit__cursor__t}{cbit\_cursor\_t}}\ *a\_cursor);}
+\DoxyCodeLine{00067\ uint64\_t\ \mbox{\hyperlink{cbit_8h_a099527c0fc92fab59deadcd3910caeb6}{cbit\_read\_many}}\ \ \ \ \ (\mbox{\hyperlink{structcbit__cursor__t}{cbit\_cursor\_t}}\ *a\_cursor,\ uint16\_t\ a\_count);}
+\DoxyCodeLine{00068\ uint16\_t\ \mbox{\hyperlink{cbit_8h_ad0576de9f4c9a0b03a3cdc5f8cb91855}{cbit\_bit\_width}}\ \ \ \ \ (uint64\_t\ a\_val);}
+\DoxyCodeLine{00069\ }
+\DoxyCodeLine{00070\ \textcolor{preprocessor}{\#ifdef\ \_\_cplusplus}}
+\DoxyCodeLine{00071\ \}}
+\DoxyCodeLine{00072\ \textcolor{preprocessor}{\#endif}}
+\DoxyCodeLine{00073\ }
+\DoxyCodeLine{00074\ \textcolor{preprocessor}{\#endif\ }\textcolor{comment}{//\ CBIT\_H}}
+
+\end{DoxyCode}
