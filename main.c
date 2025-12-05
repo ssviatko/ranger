@@ -961,7 +961,7 @@ int main(int argc, char **argv)
 		verify_file_argument();
 		extract();
 	} else {
-		color_err_printf(0, "carith: please choose at least one operational mode.");
+		color_err_printf(0, "carith: please choose one and only one operational mode.");
 		color_err_printf(0, "carith: use -? or --help for usage information.");
 		exit(EXIT_FAILURE);
 	}
