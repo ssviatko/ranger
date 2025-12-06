@@ -507,7 +507,7 @@ void extract()
 				color_printf("*acarith:*d --- RLE intermediate:     *h%ld*d\n", ntohl(l_fh.total_rle_len));
 			}
 			if ((l_fh.scheme & scheme_lzss4) == scheme_lzss4) {
-				color_printf("*acarith:*d --- LZSS4 intermediate:    *h%ld*d\n", ntohl(l_fh.total_lzss4_len));
+				color_printf("*acarith:*d --- LZSS4 intermediate:   *h%ld*d\n", ntohl(l_fh.total_lzss4_len));
 			}
 			color_printf("*acarith:*d --- size on disk:         *h%ld*d\n", g_in_len);
 			color_printf("*acarith:*d --- compression ratio:    *h%3.5f%%*d\n", (float)l_in_stat.st_size / (float)ntohl(l_fh.total_plain_len) * 100.0);
