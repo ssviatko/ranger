@@ -173,7 +173,7 @@ carith_error_t carith_init_ctx(carith_comp_ctx *ctx, size_t a_worksize)
     }
     // LZSS stuff
     ctx->lzssenc = NULL;
-    ctx->lzssenc = malloc(LZSS_WINDOW_SIZE + a_worksize);
+    ctx->lzssenc = malloc(LZSS_WINDOW_SIZE + (a_worksize * 3 / 2));
     if (ctx->lzssenc == NULL) {
         free(ctx->plain);
         free(ctx->rleenc);
@@ -183,7 +183,7 @@ carith_error_t carith_init_ctx(carith_comp_ctx *ctx, size_t a_worksize)
         return CARITH_ERR_MEMORY;
     }
     ctx->lzssdec = NULL;
-    ctx->lzssdec = malloc(LZSS_WINDOW_SIZE + a_worksize);
+    ctx->lzssdec = malloc(LZSS_WINDOW_SIZE + (a_worksize * 3 / 2));
     if (ctx->lzssdec == NULL) {
         free(ctx->plain);
         free(ctx->rleenc);
