@@ -116,7 +116,8 @@ typedef struct {
 typedef enum {
     LZSS_ERR_NONE,
     LZSS_ERR_MEMORY,
-    LZSS_ERR_ZEROIN
+    LZSS_ERR_ZEROIN,
+    LZSS_ERR_MINICOOKIE
 } lzss_error_t;
 
 const char     *lzss_strerror                   (lzss_error_t a_errno);

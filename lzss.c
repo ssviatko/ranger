@@ -35,20 +35,23 @@
 
 #include "lzss.h"
 
-static uint32_t WINDOW_SIZE = 4095; ///< Size of sliding window containing previously seen tokens. Optionally seeded with a pre-defined dictionary.
-static uint8_t MINMATCH = 3; ///< Minimum match length of a match token
-static uint8_t MAXMATCH = 18; ///< Maximum match length of a match token
+static const uint32_t WINDOW_SIZE = 4095; ///< Size of sliding window containing previously seen tokens. Optionally seeded with a pre-defined dictionary.
+static const uint8_t MINMATCH = 3; ///< Minimum match length of a match token
+static const uint8_t MAXMATCH = 18; ///< Maximum match length of a match token
+static const uint8_t MINICOOKIE = 0xac; ///< start of decompressed stream marker
 
-static uint32_t OFFSET_INITIAL_COPY = 0; ///< Position in the output buffer where the encoder puts the initial copy length in network byte order.
-static uint32_t OFFSET_TOKEN_COUNT = 4; ///< Position in the output buffer where the encoder puts the token count in network byte order.
-static uint32_t OFFSET_OUTPUT_STREAM = 8; ///< Position in the output buffer where the encoder begins writing the output byte/token stream.
+static const uint32_t OFFSET_MINICOOKIE = 0;
+static const uint32_t OFFSET_INITIAL_COPY = 1; ///< Position in the output buffer where the encoder puts the initial copy length in network byte order.
+static const uint32_t OFFSET_TOKEN_COUNT = 5; ///< Position in the output buffer where the encoder puts the token count in network byte order.
+static const uint32_t OFFSET_OUTPUT_STREAM = 9; ///< Position in the output buffer where the encoder begins writing the output byte/token stream.
 
 static const char *default_seed = "the and over if else printf do while goto define include size_t int unsigned uint8_t uint16_t uint32_t uint64_t for void return char short long long static typedef union enum stdio.h stdlib.h errno.h string.h iostream map queue list stack sys/fcntl.h sys/time.h unistd.h class public private protected default memcpy memset volatile pthread exit mutex condition";
 
 const char *lzss_error_string[] = {
     "none",
     "memory allocation error",
-    "zero length input"
+    "zero length input",
+    "minicookie error"
 }; ///< List of standard LZSS error strings correlated to integer LZSS error codes.
 
 /**
@@ -247,19 +250,19 @@ static void flush_tb(token_block_t *a_tb, uint8_t *a_out, size_t *a_out_pos)
         a_tb->flags >>= (8 - a_tb->numflags); // scoot them over so flag #0 starts at bit position 0
 
 //    printf("flush_tb: flags %02X a_out_pos %ld tokens %d\n", a_tb->flags, *a_out_pos, a_tb->numflags);
-    a_out[WINDOW_SIZE + (*a_out_pos)++] = a_tb->flags;
+    a_out[(*a_out_pos)++] = a_tb->flags;
     for (i = 0; i < a_tb->numflags; ++i) {
         if ((a_tb->flags & 0x01) == 0x01) {
             // write match token
 //            printf("write match token incr %ld\n", *a_out_pos);
             uint16_t l_temp16 = htons(a_tb->tokens[i]);
-            memcpy(a_out + *a_out_pos + WINDOW_SIZE, &l_temp16, sizeof(l_temp16));
+            memcpy(a_out + *a_out_pos, &l_temp16, sizeof(l_temp16));
             *a_out_pos += 2;
         } else {
             // write byte token
 //            printf("write byte token incr %ld\n", *a_out_pos);
             uint8_t l_temp8 = a_tb->tokens[i];
-            memcpy(a_out + *a_out_pos + WINDOW_SIZE, &l_temp8, sizeof(l_temp8));
+            memcpy(a_out + *a_out_pos, &l_temp8, sizeof(l_temp8));
             (*a_out_pos)++;
         }
         a_tb->flags >>= 1;
@@ -339,7 +342,7 @@ lzss_error_t lzss_encode(lzss_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len, uin
 //                    if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
 //                        c = a_in[window_ptr];
 //                    printf("byte copy  output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
-                    a_out[WINDOW_SIZE + out_ptr] = a_in[window_ptr];
+                    a_out[out_ptr] = a_in[window_ptr];
                     initial_copy++;
                     out_ptr++;
                 } else {
@@ -388,9 +391,10 @@ lzss_error_t lzss_encode(lzss_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len, uin
     }
 //    printf("lzss_encode: initial_copy %d token_count %d a_in_len %ld out_ptr %ld\n", initial_copy, token_count, a_in_len, out_ptr);
     initial_copy = htonl(initial_copy);
-    memcpy(a_out + OFFSET_INITIAL_COPY + WINDOW_SIZE, &initial_copy, sizeof(initial_copy));
+    memcpy(a_out + OFFSET_INITIAL_COPY, &initial_copy, sizeof(initial_copy));
     token_count = htonl(token_count);
-    memcpy(a_out + OFFSET_TOKEN_COUNT + WINDOW_SIZE, &token_count, sizeof(token_count));
+    memcpy(a_out + OFFSET_TOKEN_COUNT, &token_count, sizeof(token_count));
+    a_out[OFFSET_MINICOOKIE] = MINICOOKIE;
     *a_out_len = out_ptr;
     return LZSS_ERR_NONE;
 }
@@ -419,12 +423,16 @@ lzss_error_t lzss_encode(lzss_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len, uin
 lzss_error_t lzss_decode(lzss_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len, uint8_t *a_out, size_t *a_out_len)
 {
     uint32_t initial_copy;
-    memcpy(&initial_copy, a_in + OFFSET_INITIAL_COPY + WINDOW_SIZE, sizeof(initial_copy));
+    memcpy(&initial_copy, a_in + OFFSET_INITIAL_COPY, sizeof(initial_copy));
     initial_copy = ntohl(initial_copy);
     uint32_t token_count;
-    memcpy(&token_count, a_in + OFFSET_TOKEN_COUNT + WINDOW_SIZE, sizeof(token_count));
+    memcpy(&token_count, a_in + OFFSET_TOKEN_COUNT, sizeof(token_count));
     token_count = ntohl(token_count);
 //    printf("lzss_decode: token_count %d initial_copy %d\n", token_count, initial_copy);
+
+    if (a_in[OFFSET_MINICOOKIE] != MINICOOKIE) {
+        return LZSS_ERR_MINICOOKIE;
+    }
 
     size_t in_ptr = OFFSET_OUTPUT_STREAM;
     size_t out_ptr = 0;
@@ -433,13 +441,13 @@ lzss_error_t lzss_decode(lzss_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len, uin
 
     // do initial copy of raw bytes
     for (i = 0; i < initial_copy; ++i) {
-        a_out[WINDOW_SIZE + out_ptr++] = a_in[WINDOW_SIZE + in_ptr++];
+        a_out[WINDOW_SIZE + out_ptr++] = a_in[in_ptr++];
     }
 //    printf("lzss_decode: initial copy %d bytes in_ptr %ld out_ptr %ld\n", initial_copy, in_ptr, out_ptr);
 
     // read in token_count tokens in 8 token increments
     for (i = 0; i < token_count; i += 8) {
-        uint8_t flags = a_in[WINDOW_SIZE + in_ptr++];
+        uint8_t flags = a_in[in_ptr++];
         //        printf("lzss_decode: in_ptr %ld i %ld flags %02X\n", in_ptr, i, flags);
         for (j = 0; j < 8; ++j) {
             if ((i + j) >= token_count)
@@ -447,7 +455,7 @@ lzss_error_t lzss_decode(lzss_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len, uin
             if ((flags & 0x01) == 0x01) {
                 // read match token
                 uint16_t l_temp16;
-                memcpy(&l_temp16, a_in + WINDOW_SIZE + in_ptr, sizeof(l_temp16));
+                memcpy(&l_temp16, a_in + in_ptr, sizeof(l_temp16));
                 l_temp16 = ntohs(l_temp16);
                 uint16_t match_back_ptr = l_temp16 >> 4;
                 uint8_t match_len = l_temp16 & 0xf;
@@ -466,7 +474,7 @@ lzss_error_t lzss_decode(lzss_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len, uin
             } else {
                 //read byte token
                 uint8_t l_temp8;
-                memcpy(&l_temp8, a_in + WINDOW_SIZE + in_ptr, sizeof(l_temp8));
+                memcpy(&l_temp8, a_in + in_ptr, sizeof(l_temp8));
                 memcpy(a_out + WINDOW_SIZE + out_ptr, &l_temp8, sizeof(l_temp8));
 //                // report
 //                char c = 0x20;

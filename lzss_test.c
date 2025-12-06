@@ -25,7 +25,7 @@ lzss_comp_ctx ctx;
 void ccct_print_hex(uint8_t *a_buffer, size_t a_len)
 {
     unsigned int i;
-    unsigned int l_bytes_to_print = (100 / 48) * 16;
+    unsigned int l_bytes_to_print = (200 / 48) * 16;
     for (i = 0; i < a_len; ++i) {
         if (i % l_bytes_to_print == 0)
             printf("\n");
@@ -39,10 +39,13 @@ void process()
      lzss_prepare_default_dictionary(&ctx, plain);
     lzss_prepare_pointer_pool(&ctx, plain, plain_len);
     printf("plain_len %d ", plain_len);
+//    ccct_print_hex((uint8_t *)plain + WINDOW_SIZE, plain_len);
+//    printf("dictionary: start at %d ", ctx.seed_dictionary_start);
+//    ccct_print_hex(plain + ctx.seed_dictionary_start, WINDOW_SIZE - ctx.seed_dictionary_start);
     size_t compsize;
     lzss_encode(&ctx, plain, plain_len, comp, &compsize);
     printf("comp (%ld bytes) ", compsize);
-//    ccct_print_hex((uint8_t *)comp + WINDOW_SIZE, compsize);
+    ccct_print_hex((uint8_t *)comp, compsize);
     size_t decompsize;
     lzss_prepare_default_dictionary(&ctx, decomp);
     lzss_decode(&ctx, comp, compsize, decomp, &decompsize);
@@ -142,8 +145,8 @@ int main(int argc, char **argv)
     }
 
     chdir(argv[1]);
-    listdir(".");
-    //load_file("/home/ssviatko/c/pi.c");
+    //listdir(".");
+    load_file(argv[1]);
     lzss_free_context(&ctx);
 
     gettimeofday(&g_end_time, NULL);

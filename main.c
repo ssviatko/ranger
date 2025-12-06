@@ -29,6 +29,7 @@ int g_verbose = 0;
 int g_norle = 0;
 int g_nolzss = 0;
 int g_rleonly = 0;
+int g_lzssonly = 0;
 uint32_t g_segsize = DEFAULT_SEGSIZE;
 enum { MODE_NONE, MODE_COMPRESS, MODE_EXTRACT, MODE_TELL } g_mode = MODE_NONE;
 char g_in[BUFFLEN];
@@ -82,7 +83,8 @@ enum {
 	OPT_RLEONLY,
 	OPT_NOCOLOR,
 	OPT_NOKEEP,
-	OPT_NOLZSS
+	OPT_NOLZSS,
+	OPT_LZSSONLY
 };
 
 struct option g_options[] = {
@@ -97,6 +99,7 @@ struct option g_options[] = {
 	{ "nocolor", no_argument, NULL, OPT_NOCOLOR },
 	{ "norle", no_argument, NULL, OPT_NORLE },
 	{ "nolzss", no_argument, NULL, OPT_NOLZSS },
+	{ "lzssonly", no_argument, NULL, OPT_LZSSONLY },
 	{ "rleonly", no_argument, NULL, OPT_RLEONLY },
 	{ "nokeep", no_argument, NULL, OPT_NOKEEP },
 	{ NULL, 0, NULL, 0 }
@@ -215,6 +218,8 @@ void compress()
 	l_fh.mode = htonl(g_in_mode);
 	if (g_rleonly) {
 		l_fh.scheme |= scheme_rle;
+	} else if (g_lzssonly) {
+		l_fh.scheme |= scheme_lzss;
 	} else {
 		if (g_norle) {
 			l_fh.scheme |= scheme_ac;
@@ -854,6 +859,11 @@ int main(int argc, char **argv)
 				g_rleonly = 1;
 			}
 			break;
+			case OPT_LZSSONLY:
+			{
+				g_lzssonly = 1;
+			}
+			break;
 			case '?':
 			{
 				color_printf("*hcarith (C arithmetic coder) compression utility*d\n");
@@ -869,6 +879,7 @@ int main(int argc, char **argv)
 				color_printf("*a     (--norle)*d defeat RLE encode before arithmetic compression\n");
 				color_printf("*a     (--rleonly)*d RLE encode file only, no arithmetic compression\n");
 				color_printf("*a     (--nolzss)*d defeat LZSS encode before arithmetic compression\n");
+				color_printf("*a     (--lzssonly)*d LZSS encode file only, no arithmetic compression\n");
 				color_printf("*a     (--nokeep)*d delete input files, like UNIX compress command\n");
 				color_printf("*hoperational modes*a (choose only one)*d\n");
 				color_printf("*a  -c (--compress) <file>*d compress a file\n");
@@ -883,9 +894,19 @@ int main(int argc, char **argv)
 	setbuf(stdout, NULL); // disable buffering so we can print our color_progress
 	color_init(g_nocolor, g_debug);
 
-	// police illogical RLE choices
+	// police illogical flag choices
 	if ((g_norle == 1) && (g_rleonly == 1)) {
 		color_err_printf(0, "carith: --norle and --rleonly are mutually exclusive. please select only one of these.");
+		color_err_printf(0, "carith: use -? or --help for usage information.");
+		exit(EXIT_FAILURE);
+	}
+	if ((g_nolzss == 1) && (g_lzssonly == 1)) {
+		color_err_printf(0, "carith: --nolzss and --lzssonly are mutually exclusive. please select only one of these.");
+		color_err_printf(0, "carith: use -? or --help for usage information.");
+		exit(EXIT_FAILURE);
+	}
+	if ((g_rleonly == 1) && (g_lzssonly == 1)) {
+		color_err_printf(0, "carith: --rleonly and --lzssonly are mutually exclusive. please select only one of these.");
 		color_err_printf(0, "carith: use -? or --help for usage information.");
 		exit(EXIT_FAILURE);
 	}
@@ -935,6 +956,7 @@ int main(int argc, char **argv)
 		if (g_verbose && g_norle) color_printf("*acarith:*d defeating RLE encode before arithmetic compression.\n");
 		if (g_verbose && g_rleonly) color_printf("*acarith:*d RLE encode file only, no arithmetic compression.\n");
 		if (g_verbose && g_nolzss) color_printf("*acarith:*d defeating LZSS encode before arithmetic compression.\n");
+		if (g_verbose && g_lzssonly) color_printf("*acarith:*d LZSS encode file only, no arithmetic compression.\n");
 		g_in[0] = 0;
 		strcpy(g_in, argv[optind]);
 		verify_file_argument();
