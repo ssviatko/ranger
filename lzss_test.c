@@ -11,7 +11,8 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#include "lzss.h"
+#include "lzss4.h"
+#include "lzss32.h"
 
 #define WINDOW_SIZE 4095
 #define SEGSIZE 524288
@@ -20,7 +21,7 @@ static uint8_t plain[WINDOW_SIZE + SEGSIZE];
 static uint32_t plain_len;
 static uint8_t comp[SEGSIZE * 3 / 2]; // 150% guard size
 static uint8_t decomp[WINDOW_SIZE + (SEGSIZE * 3 /2)];
-lzss_comp_ctx ctx;
+lzss4_comp_ctx ctx;
 
 void ccct_print_hex(uint8_t *a_buffer, size_t a_len)
 {
@@ -36,19 +37,19 @@ void ccct_print_hex(uint8_t *a_buffer, size_t a_len)
 
 void process()
 {
-     lzss_prepare_default_dictionary(&ctx, plain);
-    lzss_prepare_pointer_pool(&ctx, plain, plain_len);
+     lzss4_prepare_default_dictionary(&ctx, plain);
+    lzss4_prepare_pointer_pool(&ctx, plain, plain_len);
     printf("plain_len %d ", plain_len);
 //    ccct_print_hex((uint8_t *)plain + WINDOW_SIZE, plain_len);
 //    printf("dictionary: start at %d ", ctx.seed_dictionary_start);
 //    ccct_print_hex(plain + ctx.seed_dictionary_start, WINDOW_SIZE - ctx.seed_dictionary_start);
     size_t compsize;
-    lzss_encode(&ctx, plain, plain_len, comp, &compsize);
+    lzss4_encode(&ctx, plain, plain_len, comp, &compsize);
     printf("comp (%ld bytes) ", compsize);
     ccct_print_hex((uint8_t *)comp, compsize);
     size_t decompsize;
-    lzss_prepare_default_dictionary(&ctx, decomp);
-    lzss_decode(&ctx, comp, compsize, decomp, &decompsize);
+    lzss4_prepare_default_dictionary(&ctx, decomp);
+    lzss4_decode(&ctx, comp, compsize, decomp, &decompsize);
     printf("decomp (%ld bytes ratio %3.5f) ", decompsize, (float)compsize / (float)decompsize * 100.0);
 //    ccct_print_hex((uint8_t *)decomp + WINDOW_SIZE, decompsize);
 //    printf("P:%s\nD:%s\n", l_plain, decomp + WINDOW_SIZE);
@@ -138,7 +139,7 @@ int main(int argc, char **argv)
     struct timeval g_start_time, g_end_time;
     gettimeofday(&g_start_time, NULL);
 
-    lzss_error_t err = lzss_init_context(&ctx, SEGSIZE);
+    lzss4_error_t err = lzss4_init_context(&ctx, SEGSIZE);
     if (err != LZSS_ERR_NONE) {
         fprintf(stderr, "init context");
         exit(EXIT_FAILURE);
@@ -147,7 +148,7 @@ int main(int argc, char **argv)
     chdir(argv[1]);
     //listdir(".");
     load_file(argv[1]);
-    lzss_free_context(&ctx);
+    lzss4_free_context(&ctx);
 
     gettimeofday(&g_end_time, NULL);
 

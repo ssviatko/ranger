@@ -172,9 +172,9 @@ carith_error_t carith_init_ctx(carith_comp_ctx *ctx, size_t a_worksize)
         return CARITH_ERR_MEMORY;
     }
     // LZSS stuff
-    ctx->lzssenc = NULL;
-    ctx->lzssenc = malloc(LZSS_WINDOW_SIZE + (a_worksize * 3 / 2));
-    if (ctx->lzssenc == NULL) {
+    ctx->lzss4enc = NULL;
+    ctx->lzss4enc = malloc(LZSS_WINDOW_SIZE + (a_worksize * 3 / 2));
+    if (ctx->lzss4enc == NULL) {
         free(ctx->plain);
         free(ctx->rleenc);
         free(ctx->rledec);
@@ -182,21 +182,21 @@ carith_error_t carith_init_ctx(carith_comp_ctx *ctx, size_t a_worksize)
         free(ctx->decomp);
         return CARITH_ERR_MEMORY;
     }
-    ctx->lzssdec = NULL;
-    ctx->lzssdec = malloc(LZSS_WINDOW_SIZE + (a_worksize * 3 / 2));
-    if (ctx->lzssdec == NULL) {
+    ctx->lzss4dec = NULL;
+    ctx->lzss4dec = malloc(LZSS_WINDOW_SIZE + (a_worksize * 3 / 2));
+    if (ctx->lzss4dec == NULL) {
         free(ctx->plain);
         free(ctx->rleenc);
         free(ctx->rledec);
         free(ctx->comp);
         free(ctx->decomp);
-        free(ctx->lzssenc);
+        free(ctx->lzss4enc);
         return CARITH_ERR_MEMORY;
     }
 
     // init our LZSS context
-    lzss_error_t err;
-    err = lzss_init_context(&ctx->lzss_context, a_worksize);
+    lzss4_error_t err;
+    err = lzss4_init_context(&ctx->lzss4_context, a_worksize);
     if (err != LZSS_ERR_NONE) {
         return CARITH_ERR_MEMORY;
     }
@@ -210,14 +210,14 @@ carith_error_t carith_init_ctx(carith_comp_ctx *ctx, size_t a_worksize)
 
 carith_error_t carith_free_ctx(carith_comp_ctx *ctx)
 {
-    lzss_free_context(&ctx->lzss_context);
+    lzss4_free_context(&ctx->lzss4_context);
     free(ctx->plain);
     free(ctx->rleenc);
     free(ctx->rledec);
     free(ctx->comp);
     free(ctx->decomp);
-    free(ctx->lzssenc);
-    free(ctx->lzssdec);
+    free(ctx->lzss4enc);
+    free(ctx->lzss4dec);
     return CARITH_ERR_NONE;
 }
 
@@ -262,7 +262,7 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
     size_t ac_source_size = ctx->plain_len;
 
     ctx->rle_intermediate = 0; // for AC only operation, will be changed if RLE is on
-    ctx->lzss_intermediate = 0;
+    ctx->lzss4_intermediate = 0;
 
 //    // sanity check
 //    uint8_t sanity[1048576];
@@ -283,7 +283,7 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
         }
     }
 
-    lzss_error_t err;
+    lzss4_error_t err;
 
     if (l_schemenum == RLEONLY) {
         rle_encode(ctx->plain, ctx->comp, ctx->plain_len, &ctx->rle_intermediate);
@@ -301,46 +301,46 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
         memcpy(ctx->rleenc + LZSS_WINDOW_SIZE, ctx->plain, ctx->plain_len);
 //        printf("rleenc window at %d (%ld) ", LZSS_WINDOW_SIZE, ctx->plain_len);
 //        ccct_print_hex(ctx->rleenc + LZSS_WINDOW_SIZE, ctx->plain_len);
-        lzss_prepare_default_dictionary(&ctx->lzss_context, ctx->rleenc);
-//        printf("rleenc dictionary: start at %d ", ctx->lzss_context.seed_dictionary_start);
-//        ccct_print_hex(ctx->rleenc + ctx->lzss_context.seed_dictionary_start, LZSS_WINDOW_SIZE - ctx->lzss_context.seed_dictionary_start);
-        lzss_prepare_pointer_pool(&ctx->lzss_context, ctx->rleenc, ctx->plain_len);
-        //encode lzss from rleenc -> comp
-        err = lzss_encode(&ctx->lzss_context, ctx->rleenc, ctx->plain_len, ctx->comp, &ctx->lzss_intermediate);
+        lzss4_prepare_default_dictionary(&ctx->lzss4_context, ctx->rleenc);
+//        printf("rleenc dictionary: start at %d ", ctx->lzss4_context.seed_dictionary_start);
+//        ccct_print_hex(ctx->rleenc + ctx->lzss4_context.seed_dictionary_start, LZSS_WINDOW_SIZE - ctx->lzss4_context.seed_dictionary_start);
+        lzss4_prepare_pointer_pool(&ctx->lzss4_context, ctx->rleenc, ctx->plain_len);
+        //encode lzss4 from rleenc -> comp
+        err = lzss4_encode(&ctx->lzss4_context, ctx->rleenc, ctx->plain_len, ctx->comp, &ctx->lzss4_intermediate);
         if (err != LZSS_ERR_NONE) {
-            fprintf(stderr, "lzss error: %s", lzss_strerror(err));
+            fprintf(stderr, "lzss4 error: %s", lzss4_strerror(err));
             exit(EXIT_FAILURE);
         }
-//        printf("comp (%ld) ", ctx->lzss_intermediate);
-//        ccct_print_hex(ctx->comp, ctx->lzss_intermediate);
+//        printf("comp (%ld) ", ctx->lzss4_intermediate);
+//        ccct_print_hex(ctx->comp, ctx->lzss4_intermediate);
         ctx->freq_comp_len = 0;
-        ctx->comp_len = ctx->lzss_intermediate;
+        ctx->comp_len = ctx->lzss4_intermediate;
         return CARITH_ERR_NONE;
     } else if (l_schemenum == RLELZSSAC) {
         rle_encode(ctx->plain, ctx->rleenc + LZSS_WINDOW_SIZE, ctx->plain_len, &ctx->rle_intermediate);
-        lzss_prepare_default_dictionary(&ctx->lzss_context, ctx->rleenc);
-        lzss_prepare_pointer_pool(&ctx->lzss_context, ctx->rleenc, ctx->rle_intermediate);
-        err = lzss_encode(&ctx->lzss_context, ctx->rleenc, ctx->rle_intermediate, ctx->lzssenc, &ctx->lzss_intermediate);
+        lzss4_prepare_default_dictionary(&ctx->lzss4_context, ctx->rleenc);
+        lzss4_prepare_pointer_pool(&ctx->lzss4_context, ctx->rleenc, ctx->rle_intermediate);
+        err = lzss4_encode(&ctx->lzss4_context, ctx->rleenc, ctx->rle_intermediate, ctx->lzss4enc, &ctx->lzss4_intermediate);
         if (err != LZSS_ERR_NONE) {
-            fprintf(stderr, "lzss error: %s", lzss_strerror(err));
+            fprintf(stderr, "lzss4 error: %s", lzss4_strerror(err));
             exit(EXIT_FAILURE);
         }
-        ac_source = ctx->lzssenc;
-        ac_source_size = ctx->lzss_intermediate;
+        ac_source = ctx->lzss4enc;
+        ac_source_size = ctx->lzss4_intermediate;
     } else if (l_schemenum == LZSSAC) {
         // move plain into rleenc and make space for window
         memcpy(ctx->rleenc + LZSS_WINDOW_SIZE, ctx->plain, ctx->plain_len);
-        lzss_prepare_default_dictionary(&ctx->lzss_context, ctx->rleenc);
-        lzss_prepare_pointer_pool(&ctx->lzss_context, ctx->rleenc, ctx->plain_len);
-        err = lzss_encode(&ctx->lzss_context, ctx->rleenc, ctx->plain_len, ctx->lzssenc, &ctx->lzss_intermediate);
+        lzss4_prepare_default_dictionary(&ctx->lzss4_context, ctx->rleenc);
+        lzss4_prepare_pointer_pool(&ctx->lzss4_context, ctx->rleenc, ctx->plain_len);
+        err = lzss4_encode(&ctx->lzss4_context, ctx->rleenc, ctx->plain_len, ctx->lzss4enc, &ctx->lzss4_intermediate);
         if (err != LZSS_ERR_NONE) {
-            fprintf(stderr, "lzss error: %s", lzss_strerror(err));
+            fprintf(stderr, "lzss4 error: %s", lzss4_strerror(err));
             exit(EXIT_FAILURE);
         }
-//        printf("lzssenc (%ld) ", ctx->lzss_intermediate);
-//        ccct_print_hex(ctx->lzssenc, ctx->lzss_intermediate);
-        ac_source = ctx->lzssenc;
-        ac_source_size = ctx->lzss_intermediate;
+//        printf("lzss4enc (%ld) ", ctx->lzss4_intermediate);
+//        ccct_print_hex(ctx->lzss4enc, ctx->lzss4_intermediate);
+        ac_source = ctx->lzss4enc;
+        ac_source_size = ctx->lzss4_intermediate;
     } else if (l_schemenum == ACONLY) {
         // we're already set up with the AC source set to plain, so do nothing...
     }
@@ -494,10 +494,10 @@ carith_error_t carith_extract(carith_comp_ctx *ctx)
         ac_dest_size = &ctx->rledec_len;
         ac_source_size = ctx->rle_intermediate;
     } else if ((l_schemenum == RLELZSSAC) || (l_schemenum == LZSSAC)) {
-        // decompressed AC stream goes to lzssdec
-        ac_dest = ctx->lzssdec;
-        ac_dest_size = &ctx->lzssdec_len;
-        ac_source_size = ctx->lzss_intermediate;
+        // decompressed AC stream goes to lzss4dec
+        ac_dest = ctx->lzss4dec;
+        ac_dest_size = &ctx->lzss4dec_len;
+        ac_source_size = ctx->lzss4_intermediate;
     }
 
     uint64_t range_lo, range_hi;
@@ -613,7 +613,7 @@ carith_error_t carith_extract(carith_comp_ctx *ctx)
 
 carith_extract_skipac:
 
-    lzss_error_t err;
+    lzss4_error_t err;
 
     // if we did rle only, copy comp into rledec
     if (l_schemenum == RLEONLY) {
@@ -624,10 +624,10 @@ carith_extract_skipac:
     } else if (l_schemenum == LZSSONLY) {
 //        printf("ctx->comp (%ld) ", ctx->comp_len);
 //        ccct_print_hex(ctx->comp, ctx->comp_len);
-        err = lzss_prepare_default_dictionary(&ctx->lzss_context, ctx->rledec);
-        err = lzss_decode(&ctx->lzss_context, ctx->comp, ctx->comp_len, ctx->rledec, &ctx->rledec_len);
+        err = lzss4_prepare_default_dictionary(&ctx->lzss4_context, ctx->rledec);
+        err = lzss4_decode(&ctx->lzss4_context, ctx->comp, ctx->comp_len, ctx->rledec, &ctx->rledec_len);
         if (err != LZSS_ERR_NONE) {
-            fprintf(stderr, "lzss error: %s", lzss_strerror(err));
+            fprintf(stderr, "lzss4 error: %s", lzss4_strerror(err));
             exit(EXIT_FAILURE);
         }
 //        printf("ctx->rledec + window(%ld) ", ctx->rledec_len);
@@ -640,26 +640,26 @@ carith_extract_skipac:
         // AC operation decomped into rledec, so decode it
         rle_decode(ctx->rledec, ctx->decomp, ctx->rledec_len, &ctx->decomp_len);
     } else if (l_schemenum == RLELZSSAC) {
-        // decompress LZSS tokens waiting in lzssdec into rledec.
+        // decompress LZSS tokens waiting in lzss4dec into rledec.
         // remember, rledec will be windowed after this operation.
-        lzss_prepare_default_dictionary(&ctx->lzss_context, ctx->rledec);
-        err = lzss_decode(&ctx->lzss_context, ctx->lzssdec, ctx->lzssdec_len, ctx->rledec, &ctx->rledec_len);
+        lzss4_prepare_default_dictionary(&ctx->lzss4_context, ctx->rledec);
+        err = lzss4_decode(&ctx->lzss4_context, ctx->lzss4dec, ctx->lzss4dec_len, ctx->rledec, &ctx->rledec_len);
         if (err != LZSS_ERR_NONE) {
-            fprintf(stderr, "lzss error: %s", lzss_strerror(err));
+            fprintf(stderr, "lzss4 error: %s", lzss4_strerror(err));
             exit(EXIT_FAILURE);
         }
         // and then do the RLE decode
         rle_decode(ctx->rledec + LZSS_WINDOW_SIZE, ctx->decomp, ctx->rledec_len, &ctx->decomp_len);
     } else if (l_schemenum == LZSSAC) {
-        // decompress into lzssdec, then copy the text after the window into decomp and set decomp's len
-        lzss_prepare_default_dictionary(&ctx->lzss_context, ctx->rledec);
-        err = lzss_decode(&ctx->lzss_context, ctx->lzssdec, ctx->lzssdec_len, ctx->rledec, &ctx->rledec_len);
+        // decompress into lzss4dec, then copy the text after the window into decomp and set decomp's len
+        lzss4_prepare_default_dictionary(&ctx->lzss4_context, ctx->rledec);
+        err = lzss4_decode(&ctx->lzss4_context, ctx->lzss4dec, ctx->lzss4dec_len, ctx->rledec, &ctx->rledec_len);
         if (err != LZSS_ERR_NONE) {
-            fprintf(stderr, "lzss error: %s what the AC decompressor gave us: len %ld", lzss_strerror(err), ctx->lzssdec_len);
-            ccct_print_hex(ctx->lzssdec, ctx->lzssdec_len);
+            fprintf(stderr, "lzss4 error: %s what the AC decompressor gave us: len %ld", lzss4_strerror(err), ctx->lzss4dec_len);
+            ccct_print_hex(ctx->lzss4dec, ctx->lzss4dec_len);
             exit(EXIT_FAILURE);
         }
-//        printf("lzss output: (%ld) ", ctx->rledec_len);
+//        printf("lzss4 output: (%ld) ", ctx->rledec_len);
 //        ccct_print_hex(ctx->rledec + LZSS_WINDOW_SIZE, ctx->rledec_len);
         memcpy(ctx->decomp, ctx->rledec + LZSS_WINDOW_SIZE, ctx->rledec_len);
         ctx->decomp_len = ctx->rledec_len;

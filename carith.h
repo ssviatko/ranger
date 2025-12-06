@@ -50,7 +50,7 @@ extern "C" {
 
 #include "cbit.h"
 #include "rle.h"
-#include "lzss.h"
+#include "lzss4.h"
 
 #define LZSS_WINDOW_SIZE 4095 ///< Extra space in buffers for LZSS window
 
@@ -66,27 +66,27 @@ typedef struct {
     uint8_t             freq_comp[1024];   ///< Compressed frequency table, either enumerated or full
     uint16_t            freq_comp_len;     ///< Length of compressed frequency table
     cbit_cursor_t       bc;                ///< Bit cursor used by carith to write out frequency tables
-    lzss_comp_ctx       lzss_context;      ///< Our LZSS context
+    lzss4_comp_ctx      lzss4_context;      ///< Our LZSS context
     uint8_t            *plain;             ///< Buffer for plaintext to be compressed
     size_t              plain_len;         ///< Plaintext length
     uint8_t            *rleenc;            ///< Buffer for RLE encoded data
     size_t              rle_intermediate;  ///< Size of plain smooshed to RLE, if specified in scheme
-    uint8_t            *lzssenc;           ///< Buffer for LZSS encoded data
-    size_t              lzss_intermediate; ///< Size of LZSS encoded data
+    uint8_t            *lzss4enc;           ///< Buffer for LZSS encoded data
+    size_t              lzss4_intermediate; ///< Size of LZSS encoded data
     uint8_t             *comp;             ///< Buffer for compressed tokens, larger than plaintext buffer to guard against over-ratio compresions
     size_t              comp_len;          ///< Length of compressed token stream
-    uint8_t            *lzssdec;           ///< Buffer for LZSS compression tokens to be decoded
-    size_t              lzssdec_len;       ///< Length of LZSS decode buffer
+    uint8_t            *lzss4dec;           ///< Buffer for LZSS compression tokens to be decoded
+    size_t              lzss4dec_len;       ///< Length of LZSS decode buffer
     uint8_t            *rledec;            ///< Buffer for RLE decode
     size_t              rledec_len;        ///< Length of RLE data to be decoded
     uint8_t            *decomp;            ///< Buffer for decompressed data
     size_t              decomp_len;        ///< Length of decompressed data
 } carith_comp_ctx;
 
-// scheme bits - order of operations: RLE, then LZSS, then AC. OR these together to make a compression chain
+// scheme bits - order of operations: RLE, then LZSS4, then AC. OR these together to make a compression chain
 const static uint8_t scheme_ac = 0x80;
 const static uint8_t scheme_rle = 0x40;
-const static uint8_t scheme_lzss = 0x20;
+const static uint8_t scheme_lzss4 = 0x20;
 
 /**
  * @enum carith_error_t
