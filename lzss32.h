@@ -33,8 +33,8 @@
  *
  */
 
-#ifndef LZSS_H
-#define LZSS_H
+#ifndef LZSS32_H
+#define LZSS32_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,7 +49,7 @@ extern "C" {
 #include <arpa/inet.h> // for htons/htonl
 
 /**
- * @struct token_block_t
+ * @struct token_block32_t
  * @brief Block of 8 tokens awaiting write to output stream
  *
  * Used by the encoder, here is where it stores tokens on their way to output
@@ -62,10 +62,10 @@ typedef struct {
     int numflags; ///< Number of flags contained in the flags byte (below)
     uint8_t flags; ///< Flags for tokens: 0 = byte token, 1 = match token
     uint16_t tokens[8]; ///< 8 tokens to write to compressed stream
-} token_block_t; ///< Token storage block used by the encoder
+} token_block32_t; ///< Token storage block used by the encoder
 
 /**
- * @struct symbol_hint_t
+ * @struct symbol_hint32_t
  * @brief Definition of a symbol hint
  *
  * An array of 256 of these is kept in the context, it is used to tabulate the
@@ -92,7 +92,7 @@ typedef struct {
     uint32_t search_base; ///< This pointer moves forward as we slide the window
     uint32_t count; ///< Total number of occurrances of this symbol
     uint32_t next_pool_loc; ///< starts at zero, counts up to count - 1, points to next location in pointer_pool to write pointer (count_base + next_pool_loc)
-} symbol_hint_t; ///< Symbol Hint Record
+} symbol_hint32_t; ///< Symbol Hint Record
 
 /**
  * @struct lzss32_comp_ctx
@@ -104,7 +104,7 @@ typedef struct {
 
 typedef struct {
     uint32_t *pointer_pool; ///< pointers, one for every byte in the buffer, which is typically [WINDOW_SIZE + SEGSIZE]
-    symbol_hint_t symbols[256]; ///< Array of symbol hints
+    symbol_hint32_t symbols[256]; ///< Array of symbol hints
     uint32_t seed_dictionary_start; ///< Pointer to start of seeded dictionary. This is where we open the window at the start of encoding.
 } lzss32_comp_ctx; ///< LZSS Compression Context
 
@@ -114,13 +114,13 @@ typedef struct {
  */
 
 typedef enum {
-    LZSS_ERR_NONE,
-    LZSS_ERR_MEMORY,
-    LZSS_ERR_ZEROIN,
-    LZSS_ERR_MINICOOKIE
+    LZSS32_ERR_NONE,
+    LZSS32_ERR_MEMORY,
+    LZSS32_ERR_ZEROIN,
+    LZSS32_ERR_MINICOOKIE
 } lzss32_error_t;
 
-const char     *lzss32_strerror                   (lzss32_error_t a_errno);
+const char       *lzss32_strerror                   (lzss32_error_t a_errno);
 lzss32_error_t    lzss32_prepare_dictionary         (lzss32_comp_ctx *ctx, const uint8_t *a_seed, size_t a_seed_len, uint8_t *a_buffer);
 lzss32_error_t    lzss32_prepare_default_dictionary (lzss32_comp_ctx *ctx, uint8_t *a_buffer);
 lzss32_error_t    lzss32_init_context               (lzss32_comp_ctx *ctx, size_t a_worksize);
@@ -133,4 +133,4 @@ lzss32_error_t    lzss32_decode                     (lzss32_comp_ctx *ctx, uint8
 }
 #endif
 
-#endif // LZSS_H
+#endif // LZSS32_H

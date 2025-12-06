@@ -35,7 +35,7 @@
 
 #include "lzss32.h"
 
-static const uint32_t WINDOW_SIZE = 4095; ///< Size of sliding window containing previously seen tokens. Optionally seeded with a pre-defined dictionary.
+static const uint32_t WINDOW_SIZE = 32767; ///< Size of sliding window containing previously seen tokens. Optionally seeded with a pre-defined dictionary.
 static const uint8_t MINMATCH = 3; ///< Minimum match length of a match token
 static const uint8_t MAXMATCH = 18; ///< Maximum match length of a match token
 static const uint8_t MINICOOKIE = 0xac; ///< start of decompressed stream marker
@@ -89,7 +89,7 @@ lzss32_error_t lzss32_prepare_dictionary(lzss32_comp_ctx *ctx, const uint8_t *a_
     memcpy(a_buffer + WINDOW_SIZE - a_seed_len, a_seed, a_seed_len);
     // set start pointer to first byte of seed dictionary we just copied
     ctx->seed_dictionary_start = WINDOW_SIZE - a_seed_len;
-    return LZSS_ERR_NONE;
+    return LZSS32_ERR_NONE;
 }
 
 /**
@@ -121,9 +121,9 @@ lzss32_error_t lzss32_init_context(lzss32_comp_ctx *ctx, size_t a_worksize)
     ctx->pointer_pool = NULL;
     ctx->pointer_pool = malloc((a_worksize * sizeof(uint32_t) + (WINDOW_SIZE * sizeof(uint32_t)))); // enough for the window and the input data
     if (ctx->pointer_pool == NULL) {
-        return LZSS_ERR_MEMORY;
+        return LZSS32_ERR_MEMORY;
     }
-    return LZSS_ERR_NONE;
+    return LZSS32_ERR_NONE;
 }
 
 /**
@@ -134,7 +134,7 @@ lzss32_error_t lzss32_init_context(lzss32_comp_ctx *ctx, size_t a_worksize)
 lzss32_error_t lzss32_free_context(lzss32_comp_ctx *ctx)
 {
     free(ctx->pointer_pool);
-    return LZSS_ERR_NONE;
+    return LZSS32_ERR_NONE;
 }
 
 /**
@@ -169,7 +169,7 @@ lzss32_error_t lzss32_prepare_pointer_pool(lzss32_comp_ctx *ctx, uint8_t *a_in, 
     for (i = ctx->seed_dictionary_start; i < WINDOW_SIZE + a_in_len; i++) {
         ctx->pointer_pool[  ctx->symbols[a_in[i]].count_base + ctx->symbols[a_in[i]].next_pool_loc++  ] = i;
     }
-    return LZSS_ERR_NONE;
+    return LZSS32_ERR_NONE;
 }
 
 /**
@@ -242,7 +242,7 @@ static void lzss32_match(lzss32_comp_ctx *ctx, uint8_t *a_in, uint32_t a_window_
  * @brief Flush token block to output stream, helper for lzss32_encode
  */
 
-static void flush_tb(token_block_t *a_tb, uint8_t *a_out, size_t *a_out_pos)
+static void flush_tb(token_block32_t *a_tb, uint8_t *a_out, size_t *a_out_pos)
 {
     size_t i;
 
@@ -317,13 +317,13 @@ lzss32_error_t lzss32_encode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
     size_t out_ptr = OFFSET_OUTPUT_STREAM; ///< Next position to write in the out buffer
     uint16_t match_back_ptr = 0; ///< Variable to hold match locations
     uint8_t match_len = 0; ///< Variable to hold match lengths, holds value MINMATCH >= value <= MAXMATCH
-    token_block_t tb;
+    token_block32_t tb;
     memset(&tb, 0, sizeof(tb));
 
     // sanity check a_in_len
     if (a_in_len == 0) {
         *a_out_len = 0;
-        return LZSS_ERR_ZEROIN;
+        return LZSS32_ERR_ZEROIN;
     }
 
 //    printf("lzss32_encode: starting window_back %d window_ptr %d window_ptr_limit %d\n", window_back, window_ptr, window_ptr_limit);
@@ -396,7 +396,7 @@ lzss32_error_t lzss32_encode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
     memcpy(a_out + OFFSET_TOKEN_COUNT, &token_count, sizeof(token_count));
     a_out[OFFSET_MINICOOKIE] = MINICOOKIE;
     *a_out_len = out_ptr;
-    return LZSS_ERR_NONE;
+    return LZSS32_ERR_NONE;
 }
 
 /**
@@ -431,7 +431,7 @@ lzss32_error_t lzss32_decode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
 //    printf("lzss32_decode: token_count %d initial_copy %d\n", token_count, initial_copy);
 
     if (a_in[OFFSET_MINICOOKIE] != MINICOOKIE) {
-        return LZSS_ERR_MINICOOKIE;
+        return LZSS32_ERR_MINICOOKIE;
     }
 
     size_t in_ptr = OFFSET_OUTPUT_STREAM;
@@ -490,5 +490,5 @@ lzss32_error_t lzss32_decode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
 
 lzss32_decode_done:
     *a_out_len = out_ptr;
-    return LZSS_ERR_NONE;
+    return LZSS32_ERR_NONE;
 }
