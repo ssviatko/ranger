@@ -503,6 +503,12 @@ void extract()
 	if (ntohs(l_fh.cookie) == g_cookie) {
 		if (g_verbose) {
 			color_printf("*acarith:*d --- original file length: *h%ld*d\n", ntohl(l_fh.total_plain_len));
+			if ((l_fh.scheme & scheme_rle) == scheme_rle) {
+				color_printf("*acarith:*d --- RLE intermediate:     *h%ld*d\n", ntohl(l_fh.total_rle_len));
+			}
+			if ((l_fh.scheme & scheme_lzss) == scheme_lzss) {
+				color_printf("*acarith:*d --- LZSS intermediate:    *h%ld*d\n", ntohl(l_fh.total_lzss_len));
+			}
 			color_printf("*acarith:*d --- size on disk:         *h%ld*d\n", g_in_len);
 			color_printf("*acarith:*d --- compression ratio:    *h%3.5f%%*d\n", (float)l_in_stat.st_size / (float)ntohl(l_fh.total_plain_len) * 100.0);
 			color_printf("*acarith:*d --- original file mode:   *h%08lX*d (*h%s*d)\n", ntohl(l_fh.mode), decimal_mode(ntohl(l_fh.mode)));
@@ -516,12 +522,6 @@ void extract()
 			if ((l_fh.scheme & scheme_ac) == scheme_ac)
 				color_printf("*hAC *d");
 			printf("\n");
-			if ((l_fh.scheme & scheme_rle) == scheme_rle) {
-				color_printf("*acarith:*d --- RLE intermediate:     *h%ld*d\n", ntohl(l_fh.total_rle_len));
-			}
-			if ((l_fh.scheme & scheme_lzss) == scheme_lzss) {
-				color_printf("*acarith:*d --- LZSS intermediate:    *h%ld*d\n", ntohl(l_fh.total_lzss_len));
-			}
 		}
 	} else {
 		color_err_printf(0, "carith: file is not a carith archive.");
