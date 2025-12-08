@@ -31,6 +31,7 @@ int g_nolzss = 0;
 int g_rleonly = 0;
 int g_lzssonly = 0;
 int g_uselzss32 = 0;
+int g_showblocks = 0;
 uint32_t g_segsize = DEFAULT_SEGSIZE;
 enum { MODE_NONE, MODE_COMPRESS, MODE_EXTRACT, MODE_TELL } g_mode = MODE_NONE;
 char g_in[BUFFLEN];
@@ -105,6 +106,7 @@ struct option g_options[] = {
 	{ "uselzss32", no_argument, NULL, OPT_USELZSS32 },
 	{ "rleonly", no_argument, NULL, OPT_RLEONLY },
 	{ "nokeep", no_argument, NULL, OPT_NOKEEP },
+	{ "showblocks", no_argument, NULL, 'b' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -310,6 +312,17 @@ void compress()
 		// all our threads are done and the plains are all contained in the ctx data structures
 		color_debug("processing %d blocks\n", i);
 		for (j = 0; j < i; ++j) {
+			// write block scheme
+			color_debug("block %ld writing scheme %02X\n", ctx->scheme);
+			res = write(g_out_fd, &ctx->scheme, sizeof(uint8_t));
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != sizeof(uint8_t)) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(uint8_t));
+				exit(EXIT_FAILURE);
+			}
 			// write rle_intermediate to file as network byte order uint32_t
 			uint32_t l_total = ctx[j].rle_intermediate;
 			color_debug("block %ld writing rle_intermediate %ld\n", j, l_total);
@@ -542,6 +555,59 @@ void extract()
 		exit(EXIT_FAILURE);
 	}
 
+	if ((g_mode == MODE_TELL) && (g_showblocks == 1)) {
+		typedef struct {
+			uint8_t scheme;
+			uint32_t rle_intermediate;
+			uint32_t lzss_intermediate;
+			uint32_t total_compsize;
+			uint16_t freqsize;
+			uint32_t plainsize;
+		} block_header_t;
+
+		int block_ctr = 0;
+		block_header_t bh;
+		int blockscan_eof = 0;
+
+		do {
+			res = read(g_in_fd, &bh, sizeof(bh));
+			if (res == 0) {
+				blockscan_eof = 1;
+				continue;
+			}
+
+			bh.rle_intermediate = ntohl(bh.rle_intermediate);
+			bh.lzss_intermediate = ntohl(bh.lzss_intermediate);
+			bh.total_compsize = ntohl(bh.total_compsize);
+			bh.freqsize = ntohs(bh.freqsize);
+			bh.plainsize = ntohl(bh.plainsize);
+
+			if (g_verbose) {
+				color_printf("*acarith:*d block: *h%d*d ", block_ctr);
+				color_printf("comp. chain: ");
+				if ((bh.scheme & scheme_rle) == scheme_rle)
+					color_printf("*hRLE *d");
+				if ((bh.scheme & scheme_lzss4) == scheme_lzss4)
+					color_printf("*hLZSS4 *d");
+				if ((bh.scheme & scheme_lzss32) == scheme_lzss32)
+					color_printf("*hLZSS32 *d");
+				if ((bh.scheme & scheme_ac) == scheme_ac)
+					color_printf("*hAC *d");
+				color_printf("comp. size: *h%ld*d ", bh.total_compsize);
+				color_printf("LZSS int: *h%ld*d ", bh.lzss_intermediate);
+				color_printf("RLE int: *h%ld*d ", bh.rle_intermediate);
+				color_printf("plain size: *h%ld*d ", bh.plainsize);
+				color_printf("(ratio: *h%3.5f%%*d)\n", (float)bh.total_compsize / (float)bh.plainsize * 100.0);
+			}
+			res = lseek(g_in_fd, bh.total_compsize, SEEK_CUR);
+			if (res < 0) {
+				color_err_printf(1, "difficulty seeking through input file");
+				exit(EXIT_FAILURE);
+			}
+			block_ctr++;
+		} while (blockscan_eof == 0);
+	}
+
 	if (g_mode == MODE_TELL) {
 		close(g_in_fd);
 		return;
@@ -598,6 +664,7 @@ void extract()
 	uint32_t l_read_plainsize;
 	uint32_t l_read_rleintermediate;
 	uint32_t l_read_lzssintermediate;
+	uint8_t l_read_scheme;
 
 	// spin up and init threads
 	for (i = 0; i < g_threads; ++i) {
@@ -614,7 +681,7 @@ void extract()
 	do {
 		g_tally = 0;
 		for (i = 0; i < g_threads; ++i) {
-			res = read(g_in_fd, &l_read_rleintermediate, sizeof(uint32_t));
+			res = read(g_in_fd, &l_read_scheme, sizeof(uint8_t));
 			if (res == 0) {
 				// eof
 				l_eof = 1;
@@ -622,6 +689,15 @@ void extract()
 					l_docontinue = 1;
 				break;
 			}
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < sizeof(uint8_t)) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(uint8_t));
+				exit(EXIT_FAILURE);
+			}
+			res = read(g_in_fd, &l_read_rleintermediate, sizeof(uint32_t));
 			if (res < 0) {
 				color_err_printf(1, "unable to read input file");
 				exit(EXIT_FAILURE);
@@ -700,7 +776,7 @@ void extract()
 			}
 
 			// populate a thread and signal it
-			ctx[i].scheme = l_fh.scheme;
+			ctx[i].scheme = l_read_scheme;
 			pthread_mutex_lock(&twa[i].sig_mtx);
 			twa[i].cur_block = l_block_ctr;
 			twa[i].sigflag = 1;
@@ -798,7 +874,7 @@ int main(int argc, char **argv)
 	pthread_cond_init(&g_tally_cond, NULL);
 
 
-	while ((opt = getopt_long(argc, argv, "?g:vcxt", g_options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "?g:vcxtb", g_options, NULL)) != -1) {
 		switch (opt) {
 			case OPT_DEBUG:
 			{
@@ -823,6 +899,11 @@ int main(int argc, char **argv)
 			case 'v': // verbose
 			{
 				g_verbose = 1;
+			}
+			break;
+			case 'b': // showblocks
+			{
+				g_showblocks = 1;
 			}
 			break;
 			case OPT_NOKEEP:
@@ -900,6 +981,7 @@ int main(int argc, char **argv)
 				color_printf("*a     (--lzssonly)*d LZSS encode file only, no arithmetic compression\n");
 				color_printf("*a     (--uselzss32)*d Use LZSS32 instead of LZSS4\n");
 				color_printf("*a     (--nokeep)*d delete input files, like UNIX compress command\n");
+				color_printf("*a  -b (--showblocks)*d Show block info in --tell mode\n");
 				color_printf("*hoperational modes*a (choose only one)*d\n");
 				color_printf("*a  -c (--compress) <file>*d compress a file\n");
 				color_printf("*a  -x (--extract) <file.carith>*d extract a file\n");
