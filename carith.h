@@ -91,6 +91,8 @@ const static uint8_t scheme_ac = 0x80;
 const static uint8_t scheme_rle = 0x40;
 const static uint8_t scheme_lzss4 = 0x20;
 const static uint8_t scheme_lzss32 = 0x10;
+const static uint8_t scheme_stored = 0x02;
+const static uint8_t scheme_roulette = 0x01;
 
 /**
  * @enum carith_error_t

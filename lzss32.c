@@ -48,6 +48,9 @@ static const uint32_t OFFSET_TOKEN_COUNT = 5; ///< Position in the output buffer
 static const uint32_t OFFSET_OUTPUT_STREAM = 9; ///< Position in the output buffer where the encoder begins writing the output byte/token stream.
 
 static const char *g_seed_filename = "/home/ssviatko/dev/carith/lzss32_seed_dic";
+uint8_t g_seed_dictionary[32768];
+uint32_t g_seed_dictionary_len;
+int g_seed_dictionary_loaded = 0;
 
 const char *lzss32_error_string[] = {
     "none",
@@ -104,20 +107,26 @@ lzss32_error_t lzss32_prepare_dictionary(lzss32_comp_ctx *ctx, const uint8_t *a_
 
 lzss32_error_t lzss32_prepare_default_dictionary(lzss32_comp_ctx *ctx, uint8_t *a_buffer)
 {
-    uint8_t l_seed_buffer[32768];
     int res;
+
+    if (g_seed_dictionary_loaded)
+        goto lzss32_prepare_default_dictionary_already_loaded;
 
     int seed_fd = open(g_seed_filename, O_RDONLY);
     if (seed_fd < 0) {
         fprintf(stderr, "lzss32: unable to open seed dictionary %s: %s\n", g_seed_filename, strerror(errno));
         exit(EXIT_FAILURE);
     }
-    res = read(seed_fd, l_seed_buffer, 32768);
+    res = read(seed_fd, g_seed_dictionary, 32768);
     if (res < 0) {
         fprintf(stderr, "lzss32: unable to read seed dictionary %s: %s\n", g_seed_filename, strerror(errno));
         exit(EXIT_FAILURE);
     }
-    return lzss32_prepare_dictionary(ctx, l_seed_buffer, res, a_buffer);
+    g_seed_dictionary_loaded = 1;
+    g_seed_dictionary_len = res;
+
+lzss32_prepare_default_dictionary_already_loaded:
+    return lzss32_prepare_dictionary(ctx, g_seed_dictionary, g_seed_dictionary_len, a_buffer);
 }
 
 /**

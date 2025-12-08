@@ -32,6 +32,7 @@ int g_rleonly = 0;
 int g_lzssonly = 0;
 int g_uselzss32 = 0;
 int g_showblocks = 0;
+int g_roulette = 0;
 uint32_t g_segsize = DEFAULT_SEGSIZE;
 enum { MODE_NONE, MODE_COMPRESS, MODE_EXTRACT, MODE_TELL } g_mode = MODE_NONE;
 char g_in[BUFFLEN];
@@ -107,6 +108,7 @@ struct option g_options[] = {
 	{ "rleonly", no_argument, NULL, OPT_RLEONLY },
 	{ "nokeep", no_argument, NULL, OPT_NOKEEP },
 	{ "showblocks", no_argument, NULL, 'b' },
+	{ "roulette", no_argument, NULL, 'r' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -221,7 +223,9 @@ void compress()
 	memset(&l_fh, 0, sizeof(l_fh));
 	l_fh.cookie = htons(g_cookie);
 	l_fh.mode = htonl(g_in_mode);
-	if (g_rleonly) {
+	if (g_roulette) {
+		l_fh.scheme |= scheme_roulette;
+	} else if (g_rleonly) {
 		l_fh.scheme |= scheme_rle;
 	} else if (g_lzssonly) {
 		if (g_uselzss32) {
@@ -314,7 +318,7 @@ void compress()
 		for (j = 0; j < i; ++j) {
 			// write block scheme
 			color_debug("block %ld writing scheme %02X\n", ctx->scheme);
-			res = write(g_out_fd, &ctx->scheme, sizeof(uint8_t));
+			res = write(g_out_fd, &ctx[j].scheme, sizeof(uint8_t));
 			if (res < 0) {
 				color_err_printf(1, "carith: unable to write to output file.");
 				exit(EXIT_FAILURE);
@@ -527,11 +531,13 @@ void extract()
 	if (ntohs(l_fh.cookie) == g_cookie) {
 		if (g_verbose) {
 			color_printf("*acarith:*d --- original file length: *h%ld*d\n", ntohl(l_fh.total_plain_len));
-			if ((l_fh.scheme & scheme_rle) == scheme_rle) {
-				color_printf("*acarith:*d --- RLE intermediate:     *h%ld*d\n", ntohl(l_fh.total_rle_len));
-			}
-			if ((l_fh.scheme & 0x30) > 0) {
-				color_printf("*acarith:*d --- LZSS intermediate:    *h%ld*d\n", ntohl(l_fh.total_lzss_len));
+			if ((l_fh.scheme & scheme_roulette) != scheme_roulette) {
+				if ((l_fh.scheme & scheme_rle) == scheme_rle) {
+					color_printf("*acarith:*d --- RLE intermediate:     *h%ld*d\n", ntohl(l_fh.total_rle_len));
+				}
+				if ((l_fh.scheme & 0x30) > 0) {
+					color_printf("*acarith:*d --- LZSS intermediate:    *h%ld*d\n", ntohl(l_fh.total_lzss_len));
+				}
 			}
 			color_printf("*acarith:*d --- size on disk:         *h%ld*d\n", g_in_len);
 			color_printf("*acarith:*d --- compression ratio:    *h%3.5f%%*d\n", (float)l_in_stat.st_size / (float)ntohl(l_fh.total_plain_len) * 100.0);
@@ -539,14 +545,19 @@ void extract()
 			color_printf("*acarith:*d --- block size:           *h%d*d\n", ntohl(l_fh.segsize));
 			color_printf("*acarith:*d --- original file CRC:    *h%08X*d\n", ntohl(l_fh.plain_crc));
 			color_printf("*acarith:*d --- compression chain:    ");
-			if ((l_fh.scheme & scheme_rle) == scheme_rle)
-				color_printf("*hRLE *d");
-			if ((l_fh.scheme & scheme_lzss4) == scheme_lzss4)
-				color_printf("*hLZSS4 *d");
-			if ((l_fh.scheme & scheme_lzss32) == scheme_lzss32)
-				color_printf("*hLZSS32 *d");
-			if ((l_fh.scheme & scheme_ac) == scheme_ac)
-				color_printf("*hAC *d");
+			if ((l_fh.scheme & scheme_roulette) != scheme_roulette) {
+				if ((l_fh.scheme & scheme_rle) == scheme_rle)
+					color_printf("*hRLE *d");
+				if ((l_fh.scheme & scheme_lzss4) == scheme_lzss4)
+					color_printf("*hLZSS4 *d");
+				if ((l_fh.scheme & scheme_lzss32) == scheme_lzss32)
+					color_printf("*hLZSS32 *d");
+				if ((l_fh.scheme & scheme_ac) == scheme_ac)
+					color_printf("*hAC *d");
+			} else {
+				color_printf("*hROULETTE*d ");
+				if (!g_showblocks) color_printf("(use *h-t*d with *h-b*d or *h--showblocks*d to interrogate individual blocks)");
+			}
 			printf("\n");
 		}
 	} else {
@@ -585,14 +596,18 @@ void extract()
 			if (g_verbose) {
 				color_printf("*acarith:*d block: *h%d*d ", block_ctr);
 				color_printf("comp. chain: ");
-				if ((bh.scheme & scheme_rle) == scheme_rle)
-					color_printf("*hRLE *d");
-				if ((bh.scheme & scheme_lzss4) == scheme_lzss4)
-					color_printf("*hLZSS4 *d");
-				if ((bh.scheme & scheme_lzss32) == scheme_lzss32)
-					color_printf("*hLZSS32 *d");
-				if ((bh.scheme & scheme_ac) == scheme_ac)
-					color_printf("*hAC *d");
+				if ((bh.scheme & scheme_stored) == scheme_stored) {
+					color_printf("*hSTORED *d");
+				} else {
+					if ((bh.scheme & scheme_rle) == scheme_rle)
+						color_printf("*hRLE *d");
+					if ((bh.scheme & scheme_lzss4) == scheme_lzss4)
+						color_printf("*hLZSS4 *d");
+					if ((bh.scheme & scheme_lzss32) == scheme_lzss32)
+						color_printf("*hLZSS32 *d");
+					if ((bh.scheme & scheme_ac) == scheme_ac)
+						color_printf("*hAC *d");
+				}
 				color_printf("comp. size: *h%ld*d ", bh.total_compsize);
 				color_printf("LZSS int: *h%ld*d ", bh.lzss_intermediate);
 				color_printf("RLE int: *h%ld*d ", bh.rle_intermediate);
@@ -874,7 +889,7 @@ int main(int argc, char **argv)
 	pthread_cond_init(&g_tally_cond, NULL);
 
 
-	while ((opt = getopt_long(argc, argv, "?g:vcxtb", g_options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "?g:vcxtbr", g_options, NULL)) != -1) {
 		switch (opt) {
 			case OPT_DEBUG:
 			{
@@ -963,6 +978,11 @@ int main(int argc, char **argv)
 				g_uselzss32 = 1;
 			}
 			break;
+			case 'r': // roulette
+			{
+				g_roulette = 1;
+			}
+			break;
 			case '?':
 			{
 				color_printf("*hcarith (C arithmetic coder) compression utility*d\n");
@@ -982,6 +1002,7 @@ int main(int argc, char **argv)
 				color_printf("*a     (--uselzss32)*d Use LZSS32 instead of LZSS4\n");
 				color_printf("*a     (--nokeep)*d delete input files, like UNIX compress command\n");
 				color_printf("*a  -b (--showblocks)*d Show block info in --tell mode\n");
+				color_printf("*a  -r (--roulette)*d use block-by-block data profiling\n");
 				color_printf("*hoperational modes*a (choose only one)*d\n");
 				color_printf("*a  -c (--compress) <file>*d compress a file\n");
 				color_printf("*a  -x (--extract) <file.carith>*d extract a file\n");
@@ -1013,6 +1034,13 @@ int main(int argc, char **argv)
 	}
 	if ((g_nolzss == 1) && (g_uselzss32 == 1)) {
 		color_err_printf(0, "carith: --nolzss and --uselzss32 are mutually exclusive. please select only one of these.");
+		color_err_printf(0, "carith: use -? or --help for usage information.");
+		exit(EXIT_FAILURE);
+	}
+	if ((g_roulette == 1) && ((g_rleonly == 1) || (g_lzssonly == 1) || (g_uselzss32 == 1) || (g_norle == 1) || (g_nolzss == 1))) {
+		color_err_printf(0, "carith: the following switches may not be used with --roulette:");
+		color_err_printf(0, "carith: --rleonly, --lzssonly, --uselzss32, --norle, --nolzss.\n");
+		color_err_printf(0, "carith: in roulette mode, carith decides which algorithm to use on a block by block basis.");
 		color_err_printf(0, "carith: use -? or --help for usage information.");
 		exit(EXIT_FAILURE);
 	}
@@ -1064,6 +1092,7 @@ int main(int argc, char **argv)
 		if (g_verbose && g_nolzss) color_printf("*acarith:*d defeating LZSS encode before arithmetic compression.\n");
 		if (g_verbose && g_lzssonly && !g_uselzss32) color_printf("*acarith:*d LZSS4 encode file only, no arithmetic compression.\n");
 		if (g_verbose && g_lzssonly && g_uselzss32) color_printf("*acarith:*d LZSS32 encode file only, no arithmetic compression.\n");
+		if (g_verbose && g_roulette) color_printf("*acarith:*d roulette mode: *hENABLED*d\n");
 		g_in[0] = 0;
 		strcpy(g_in, argv[optind]);
 		verify_file_argument();

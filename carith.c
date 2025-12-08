@@ -488,6 +488,121 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
 //    uint8_t sanity[1048576];
 //    size_t sanity_count;
 
+    if (ctx->scheme == scheme_roulette) {
+        // clear all the bits
+        ctx->scheme = 0;
+        ctx->scheme |= scheme_roulette;
+
+        lzss4_error_t err;
+        lzss32_error_t err32;
+
+        // before we do anything else, let's try using lzss32 instead of rle/lzss4.
+        // bounce plain buffer to rleenc + window, then
+        // we will stick our compressed data in rledec.
+        size_t l_initial_lzss32;
+        memcpy(ctx->rleenc + LZSS32_WINDOW_SIZE, ctx->plain, ctx->plain_len);
+        lzss32_prepare_default_dictionary(&ctx->lzss32_context, ctx->rleenc);
+        lzss32_prepare_pointer_pool(&ctx->lzss32_context, ctx->rleenc, ctx->plain_len);
+        err32 = lzss32_encode(&ctx->lzss32_context, ctx->rleenc, ctx->plain_len, ctx->rledec, &l_initial_lzss32);
+        if (err32 != LZSS32_ERR_NONE) {
+            fprintf(stderr, "lzss32 error: %s", lzss32_strerror(err32));
+            exit(EXIT_FAILURE);
+        }
+        // now we file away l_initial_lzss32 and compare it later after we use rle and/or lzss4/lzss32
+
+        // try RLE first
+        rle_encode(ctx->plain, ctx->comp, ctx->plain_len, &ctx->rle_intermediate);
+        if (ctx->rle_intermediate >= ctx->plain_len) {
+            // RLE caused bloom; copy plain into encode buffers and continue
+            memcpy(ctx->rleenc + LZSS_WINDOW_SIZE, ctx->plain, ctx->plain_len);
+            ctx->rle_intermediate = ctx->plain_len;
+            memcpy(ctx->lzssenc + LZSS32_WINDOW_SIZE, ctx->plain, ctx->plain_len);
+            ctx->scheme &= ~scheme_rle;
+//            printf("carith.c: omitting RLE: %ld\n", ctx->rle_intermediate);
+        } else {
+            // RLE reduced size, so we're good to go
+            memcpy(ctx->rleenc + LZSS_WINDOW_SIZE, ctx->comp, ctx->rle_intermediate);
+            memcpy(ctx->lzssenc + LZSS32_WINDOW_SIZE, ctx->comp, ctx->rle_intermediate);
+            ctx->scheme |= scheme_rle;
+//            printf("carith.c: using RLE: %ld\n", ctx->rle_intermediate);
+        }
+        // try both LZSS algorithms: LZSS4 goes rleenc -> comp, LZSS32 goes lzssenc -> lzssdec
+        size_t im4, im32;
+        lzss4_prepare_default_dictionary(&ctx->lzss4_context, ctx->rleenc);
+        lzss4_prepare_pointer_pool(&ctx->lzss4_context, ctx->rleenc, ctx->rle_intermediate);
+        err = lzss4_encode(&ctx->lzss4_context, ctx->rleenc, ctx->rle_intermediate, ctx->comp, &im4);
+        if (err != LZSS_ERR_NONE) {
+            fprintf(stderr, "lzss4 error: %s", lzss4_strerror(err));
+            exit(EXIT_FAILURE);
+        }
+        lzss32_prepare_default_dictionary(&ctx->lzss32_context, ctx->lzssenc);
+        lzss32_prepare_pointer_pool(&ctx->lzss32_context, ctx->lzssenc, ctx->rle_intermediate);
+        err32 = lzss32_encode(&ctx->lzss32_context, ctx->lzssenc, ctx->rle_intermediate, ctx->lzssdec, &im32);
+        if (err32 != LZSS32_ERR_NONE) {
+            fprintf(stderr, "lzss32 error: %s", lzss32_strerror(err32));
+            exit(EXIT_FAILURE);
+        }
+        size_t l_prog_int = ctx->rle_intermediate; // progress so far, to test AC algorithm
+//        printf("carith.c: im4 %ld im32 %ld\n", im4, im32);
+        // if both LZSS's blew it up, omit LZSS entirely
+        if ((im4 >= l_prog_int) && (im32 >= l_prog_int)) {
+//            printf("carith.c: im4 %ld im32 %ld both bigger than l_prog_int %ld, omiting LZSS\n", im4, im32, l_prog_int);
+            ctx->lzss_intermediate = 0;
+            ac_source_size = ctx->rle_intermediate;
+            ac_source = ctx->rleenc + LZSS_WINDOW_SIZE;
+        } else if (im4 < im32) {
+//            printf("carith.c: choosing im4 %ld l_prog_int %ld\n", im4, l_prog_int);
+            ctx->lzss_intermediate = im4;
+            l_prog_int = im4;
+            ac_source_size = im4;
+            // copy comp to lzssenc
+            memcpy(ctx->lzssenc, ctx->comp, im4);
+            ac_source = ctx->lzssenc;
+            ctx->scheme |= scheme_lzss4;
+        } else { // im32 <= im4
+//            printf("carith.c: choosing im32 %ld l_prog_int %ld\n", im32, l_prog_int);
+            ctx->lzss_intermediate = im32;
+            l_prog_int = im32;
+            ac_source_size = im32;
+            ac_source = ctx->lzssdec;
+            ctx->scheme |= scheme_lzss32;
+        }
+        // did we do better than l_initial_lzss32?
+        if (ac_source_size > l_initial_lzss32) {
+            ac_source = ctx->rledec;
+            ac_source_size = l_initial_lzss32;
+            ctx->scheme = 0;
+            ctx->scheme |= scheme_lzss32;
+            ctx->rle_intermediate = 0;
+            ctx->lzss_intermediate = l_initial_lzss32;
+//            printf("carith.c: choosing initial lzss32 instead: %ld\n", l_initial_lzss32);
+        }
+        compress_ac(ctx, ac_source, ac_source_size);
+        if ((ctx->comp_len + ctx->freq_comp_len) >= l_prog_int) {
+//            printf("carith.c: AC ballooned data from %ld to %ld, omitting AC\n", l_prog_int, (ctx->comp_len + ctx->freq_comp_len));
+            // store ac_source buffer instead and call it a day
+            memcpy(ctx->comp, ac_source, ac_source_size);
+            ctx->comp_len = ac_source_size;
+            ctx->freq_comp_len = 0;
+            // should we set the stored bit?
+            if (ctx->scheme == scheme_roulette) { // we set nothing
+                ctx->scheme = scheme_stored;
+                ctx->rle_intermediate = 0;
+                ctx->lzss_intermediate = 0;
+            }
+        } else {
+            ctx->scheme |= scheme_ac;
+        }
+
+        // fix up intermediates delete them if we didn't use the algorithms
+        if ((ctx->scheme & scheme_rle) == 0)
+            ctx->rle_intermediate = 0;
+        if ((ctx->scheme & 0x30) == 0)
+            ctx->lzss_intermediate = 0;
+
+        return CARITH_ERR_NONE;
+    }
+
     // eight options here: RLE only, RLE/LZSS/AC, RLE/AC, LZSS/AC, and AC only, plus 3 extra LZSS32 substitutions.
     enum { RLEONLY, LZSSONLY, RLELZSSAC, RLEAC, LZSSAC, ACONLY, LZSS32ONLY, RLELZSS32AC, LZSS32AC } l_schemenum;
     switch (ctx->scheme & 0xf0) {
@@ -624,6 +739,13 @@ carith_error_t carith_extract(carith_comp_ctx *ctx)
 
 //    printf("input (%ld) ", ctx->comp_len);
 //    ccct_print_hex(ctx->comp, ctx->comp_len);
+
+    // were we stored? if so then just do a straight copy
+    if ((ctx->scheme & scheme_stored) == scheme_stored) {
+        memcpy(ctx->decomp, ctx->comp, ctx->comp_len);
+        ctx->decomp_len = ctx->comp_len;
+        return CARITH_ERR_NONE;
+    }
 
     // eight options here: RLE only, RLE/LZSS/AC, RLE/AC, LZSS/AC, and AC only, plus 3 extra LZSS32 substitutions.
     enum { RLEONLY, LZSSONLY, RLELZSSAC, RLEAC, LZSSAC, ACONLY, LZSS32ONLY, RLELZSS32AC, LZSS32AC } l_schemenum;
