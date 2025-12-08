@@ -47,7 +47,7 @@ static const uint32_t OFFSET_INITIAL_COPY = 1; ///< Position in the output buffe
 static const uint32_t OFFSET_TOKEN_COUNT = 5; ///< Position in the output buffer where the encoder puts the token count in network byte order.
 static const uint32_t OFFSET_OUTPUT_STREAM = 9; ///< Position in the output buffer where the encoder begins writing the output byte/token stream.
 
-static const char *g_seed_filename = "/home/ssviatko/dev/carith/lzss32_seed_dic";
+static const char *g_seed_filename = "lzss32_seed_dic";
 
 const char *lzss32_error_string[] = {
     "none",
@@ -263,7 +263,7 @@ static void flush_tb(token_block32_t *a_tb, uint8_t *a_out, size_t *a_out_pos)
     if (a_tb->numflags < 8)
         a_tb->flags >>= ((8 - a_tb->numflags) * 2); // scoot them over so flag #0 starts at bit positions 0/1
 
-//    printf("flush_tb: flags %04X a_out_pos %ld tokens %d\n", a_tb->flags, *a_out_pos, a_tb->numflags);
+    printf("flush_tb: flags %04X a_out_pos %ld tokens %d\n", a_tb->flags, *a_out_pos, a_tb->numflags);
     a_out[(*a_out_pos)++] = (a_tb->flags >> 8);
     a_out[(*a_out_pos)++] = (a_tb->flags & 0xff);
     for (i = 0; i < a_tb->numflags; ++i) {
@@ -271,26 +271,26 @@ static void flush_tb(token_block32_t *a_tb, uint8_t *a_out, size_t *a_out_pos)
             // write large match token
             uint32_t l_temp32 = htonl(a_tb->tokens[i]);
             memcpy(a_out + *a_out_pos, (uint8_t *)(&l_temp32) + 1, 3);
-//            printf("flush large match token %06X out_pos %ld\n", ntohl(l_temp32), *a_out_pos);
+            printf("flush large match token %06X out_pos %ld\n", ntohl(l_temp32), *a_out_pos);
             *a_out_pos += 3;
         } else if ((a_tb->flags & 0x03) == 0x02) {
             // write medium match token
 //            printf("write match token incr %ld\n", *a_out_pos);
             uint32_t l_temp32 = htonl(a_tb->tokens[i]);
             memcpy(a_out + *a_out_pos, (uint8_t *)(&l_temp32) + 2, 2);
-//            printf("flush medium match token %04X out_pos %ld\n", ntohl(l_temp32), *a_out_pos);
+            printf("flush medium match token %04X out_pos %ld\n", ntohl(l_temp32), *a_out_pos);
             *a_out_pos += 2;
         } else if ((a_tb->flags & 0x03) == 0x01) {
             // write small match token
             uint32_t l_temp32 = htonl(a_tb->tokens[i]);
             memcpy(a_out + *a_out_pos, (uint8_t *)(&l_temp32) + 3, 1);
-//            printf("flush small match token %02X out_pos %ld\n", ntohl(l_temp32), *a_out_pos);
+            printf("flush small match token %02X out_pos %ld\n", ntohl(l_temp32), *a_out_pos);
             *a_out_pos += 1;
         } else {
             // write byte token
             uint8_t l_temp8 = a_tb->tokens[i];
             memcpy(a_out + *a_out_pos, &l_temp8, sizeof(l_temp8));
-//            printf("flush byte token %02X out_pos %ld\n", l_temp8, *a_out_pos);
+            printf("flush byte token %02X out_pos %ld\n", l_temp8, *a_out_pos);
             (*a_out_pos)++;
         }
         a_tb->flags >>= 2;
@@ -366,19 +366,19 @@ lzss32_error_t lzss32_encode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
             if (match_len == 0) match_len = 1; // no match, still want to write at least 1 byte
             for (i = 0; i < match_len; ++i) {
                 if (found_first_match == 0) {
-//                    char c = 0x20;
-//                    if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
-//                        c = a_in[window_ptr];
-//                    printf("byte copy  output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
+                    char c = 0x20;
+                    if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
+                        c = a_in[window_ptr];
+                    printf("byte copy  output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
                     a_out[out_ptr] = a_in[window_ptr];
                     initial_copy++;
                     out_ptr++;
                 } else {
                     /* byte token: flag type 00 */
-//                    char c = 0x20;
-//                    if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
-//                        c = a_in[window_ptr];
-//                    printf("byte token output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
+                    char c = 0x20;
+                    if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
+                        c = a_in[window_ptr];
+                    printf("byte token output : %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
                     tb.flags >>= 2;
                     tb.tokens[tb.numflags] = a_in[window_ptr];
                     tb.numflags++;
@@ -398,51 +398,51 @@ lzss32_error_t lzss32_encode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
              * 2 byte token: bbbbbbbb bbbb llll (12 bit match back, 4 bit length, match up to -4095 length 3-18, flag type 10)
              * 3 byte token: bbbbbbbb bbbbbbb lllllllll (15 bit match back, 9 bit length, match up to -32767 length 4-515, flag type 11)
              */
-//            char cc[516]; memset(cc, 0, 516);
-//            strncpy(cc, (char *)(a_in + window_ptr - match_back_ptr), match_len);
-//            for (i = 0; i < strlen(cc); ++i) {
-//                if (cc[i] < 0x20) cc[i] = '.';
-//                if (cc[i] > 0x7f) cc[i] = '.';
-//            }
+            char cc[516]; memset(cc, 0, 516);
+            strncpy(cc, (char *)(a_in + window_ptr - match_back_ptr), match_len);
+            for (i = 0; i < strlen(cc); ++i) {
+                if (cc[i] < 0x20) cc[i] = '.';
+                if (cc[i] > 0x7f) cc[i] = '.';
+            }
             // characterize match size
             if ((match_back_ptr <= 31) && (match_len <= 9)) {
                 // small match
                 tb.flags >>= 2;
                 tb.flags |= 0x4000;
                 tb.tokens[tb.numflags] = (match_back_ptr << 3) + (match_len - MINMATCH);
-//                printf("generating SMALL match token: %04X ", tb.tokens[tb.numflags]);
+                printf("generating SMALL match token: %04X ", tb.tokens[tb.numflags]);
                 tb.numflags++;
                 token_count++;
                 window_ptr += match_len;
-//                printf("output: %ld - <%d, %d> (%s)\n", out_ptr, match_back_ptr, match_len, cc);
+                printf("output: %ld - <%d, %d> (%s)\n", out_ptr, match_back_ptr, match_len, cc);
             } else if ((match_back_ptr <= 4095) && (match_len <= 18) && (match_len >= MINMATCH_MEDIUM)) {
                 // medium match
                 tb.flags >>= 2;
                 tb.flags |= 0x8000;
                 tb.tokens[tb.numflags] = (match_back_ptr << 4) + (match_len - MINMATCH_MEDIUM);
-//                printf("generating MEDIUM match token: %04X ", tb.tokens[tb.numflags]);
+                printf("generating MEDIUM match token: %04X ", tb.tokens[tb.numflags]);
                 tb.numflags++;
                 token_count++;
                 window_ptr += match_len;
-//                printf("output: %ld - <%d, %d> (%s)\n", out_ptr, match_back_ptr, match_len, cc);
+                printf("output: %ld - <%d, %d> (%s)\n", out_ptr, match_back_ptr, match_len, cc);
             } else if (match_len >= MINMATCH_LARGE){
                 // large match
                 tb.flags >>= 2;
                 tb.flags |= 0xc000;
                 tb.tokens[tb.numflags] = (match_back_ptr << 9) + (match_len - MINMATCH_LARGE);
-//                printf("generating LARGE match token: %04X ", tb.tokens[tb.numflags]);
+                printf("generating LARGE match token: %04X ", tb.tokens[tb.numflags]);
                 tb.numflags++;
                 token_count++;
                 window_ptr += match_len;
-//                printf("output: %ld - <%d, %d> (%s)\n", out_ptr, match_back_ptr, match_len, cc);
+                printf("output: %ld - <%d, %d> (%s)\n", out_ptr, match_back_ptr, match_len, cc);
             } else {
                 // match size too small, so just output byte tokens
                 for (i = 0; i < match_len; ++i) {
                     /* byte token: flag type 00 */
-//                    char c = 0x20;
-//                    if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
-//                        c = a_in[window_ptr];
-//                    printf("byte token output: %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
+                    char c = 0x20;
+                    if ((a_in[window_ptr] > 0x1f) && (a_in[window_ptr] < 0x80))
+                        c = a_in[window_ptr];
+                    printf("byte token output: %ld - %02X (%c)\n", out_ptr, a_in[window_ptr], c);
                     tb.flags >>= 2;
                     tb.tokens[tb.numflags] = a_in[window_ptr];
                     tb.numflags++;
@@ -465,7 +465,7 @@ lzss32_error_t lzss32_encode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
     if (tb.numflags > 0) {
         flush_tb(&tb, a_out, &out_ptr);
     }
-//    printf("lzss32_encode: initial_copy %d token_count %d a_in_len %ld out_ptr %ld\n", initial_copy, token_count, a_in_len, out_ptr);
+    printf("lzss32_encode: initial_copy %d token_count %d a_in_len %ld out_ptr %ld\n", initial_copy, token_count, a_in_len, out_ptr);
     initial_copy = htonl(initial_copy);
     memcpy(a_out + OFFSET_INITIAL_COPY, &initial_copy, sizeof(initial_copy));
     token_count = htonl(token_count);
@@ -526,7 +526,7 @@ lzss32_error_t lzss32_decode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
         uint16_t hibyte = a_in[in_ptr++];
         uint16_t lobyte = a_in[in_ptr++];
         uint16_t flags = (hibyte << 8) + lobyte;
-//        printf("lzss32_decode: in_ptr %ld i %ld flags %02X\n", in_ptr, i, flags);
+        printf("lzss32_decode: in_ptr %ld i %ld flags %02X\n", in_ptr, i, flags);
         for (j = 0; j < 8; ++j) {
             if ((i + j) >= token_count)
                 goto lzss32_decode_done;
@@ -538,14 +538,14 @@ lzss32_error_t lzss32_decode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
                 uint16_t match_len = l_temp32 & 0x1ff;
                 match_len += MINMATCH_LARGE;
                 memcpy(a_out + out_ptr + WINDOW_SIZE, a_out + out_ptr + WINDOW_SIZE - match_back_ptr, match_len);
-//                // report
-//                char cc[516]; memset(cc, 0, 516);
-//                strncpy(cc, (char *)(a_out + out_ptr + WINDOW_SIZE - match_back_ptr), match_len);
-//                for (size_t ii = 0; ii < strlen(cc); ++ii) {
-//                    if (cc[ii] < 0x20) cc[ii] = '.';
-//                    if (cc[ii] > 0x7f) cc[ii] = '.';
-//                }
-//                printf("large match token input: i %ld j %ld in_ptr %ld out_ptr %ld token %06X - <%d, %d> (%s)\n", i, j, in_ptr, out_ptr, l_temp32, match_back_ptr, match_len, cc);
+                // report
+                char cc[516]; memset(cc, 0, 516);
+                strncpy(cc, (char *)(a_out + out_ptr + WINDOW_SIZE - match_back_ptr), match_len);
+                for (size_t ii = 0; ii < strlen(cc); ++ii) {
+                    if (cc[ii] < 0x20) cc[ii] = '.';
+                    if (cc[ii] > 0x7f) cc[ii] = '.';
+                }
+                printf("large match token input: i %ld j %ld in_ptr %ld out_ptr %ld token %06X - <%d, %d> (%s)\n", i, j, in_ptr, out_ptr, l_temp32, match_back_ptr, match_len, cc);
                 in_ptr += 3;
                 out_ptr += match_len;
             } else if ((flags & 0x03) == 0x02) {
@@ -557,14 +557,14 @@ lzss32_error_t lzss32_decode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
                 uint8_t match_len = l_temp16 & 0xf;
                 match_len += MINMATCH_MEDIUM;
                 memcpy(a_out + out_ptr + WINDOW_SIZE, a_out + out_ptr + WINDOW_SIZE - match_back_ptr, match_len);
-//                // report
-//                char cc[516]; memset(cc, 0, 516);
-//                strncpy(cc, (char *)(a_out + out_ptr + WINDOW_SIZE - match_back_ptr), match_len);
-//                for (size_t ii = 0; ii < strlen(cc); ++ii) {
-//                    if (cc[ii] < 0x20) cc[ii] = '.';
-//                    if (cc[ii] > 0x7f) cc[ii] = '.';
-//                }
-//                printf("medium match token input: i %ld j %ld in_ptr %ld out_ptr %ld token %04X - <%d, %d> (%s)\n", i, j, in_ptr, out_ptr, l_temp16, match_back_ptr, match_len, cc);
+                // report
+                char cc[516]; memset(cc, 0, 516);
+                strncpy(cc, (char *)(a_out + out_ptr + WINDOW_SIZE - match_back_ptr), match_len);
+                for (size_t ii = 0; ii < strlen(cc); ++ii) {
+                    if (cc[ii] < 0x20) cc[ii] = '.';
+                    if (cc[ii] > 0x7f) cc[ii] = '.';
+                }
+                printf("medium match token input: i %ld j %ld in_ptr %ld out_ptr %ld token %04X - <%d, %d> (%s)\n", i, j, in_ptr, out_ptr, l_temp16, match_back_ptr, match_len, cc);
                 in_ptr += 2;
                 out_ptr += match_len;
             } else if ((flags & 0x03) == 0x01) {
@@ -573,14 +573,14 @@ lzss32_error_t lzss32_decode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
                 uint8_t match_len = a_in[in_ptr] & 0x7;
                 match_len += MINMATCH;
                 memcpy(a_out + out_ptr + WINDOW_SIZE, a_out + out_ptr + WINDOW_SIZE - match_back_ptr, match_len);
-//                // report
-//                char cc[516]; memset(cc, 0, 516);
-//                strncpy(cc, (char *)(a_out + out_ptr + WINDOW_SIZE - match_back_ptr), match_len);
-//                for (size_t ii = 0; ii < strlen(cc); ++ii) {
-//                    if (cc[ii] < 0x20) cc[ii] = '.';
-//                    if (cc[ii] > 0x7f) cc[ii] = '.';
-//                }
-//                printf("small match token input: i %ld j %ld in_ptr %ld out_ptr %ld token %02X - <%d, %d> (%s)\n", i, j, in_ptr, out_ptr, a_in[in_ptr], match_back_ptr, match_len, cc);
+                // report
+                char cc[516]; memset(cc, 0, 516);
+                strncpy(cc, (char *)(a_out + out_ptr + WINDOW_SIZE - match_back_ptr), match_len);
+                for (size_t ii = 0; ii < strlen(cc); ++ii) {
+                    if (cc[ii] < 0x20) cc[ii] = '.';
+                    if (cc[ii] > 0x7f) cc[ii] = '.';
+                }
+                printf("small match token input: i %ld j %ld in_ptr %ld out_ptr %ld token %02X - <%d, %d> (%s)\n", i, j, in_ptr, out_ptr, a_in[in_ptr], match_back_ptr, match_len, cc);
                 in_ptr++;
                 out_ptr += match_len;
             } else {
@@ -588,11 +588,11 @@ lzss32_error_t lzss32_decode(lzss32_comp_ctx *ctx, uint8_t *a_in, size_t a_in_le
                 uint8_t l_temp8;
                 memcpy(&l_temp8, a_in + in_ptr, sizeof(l_temp8));
                 memcpy(a_out + WINDOW_SIZE + out_ptr, &l_temp8, sizeof(l_temp8));
-//                // report
-//                char c = 0x20;
-//                if ((l_temp8 > 0x1f) && (l_temp8 < 0x80))
-//                    c = l_temp8;
-//                printf("byte copy input: i %ld j %ld in_ptr %ld out_ptr %ld - %02X (%c)\n", i, j, in_ptr, out_ptr, l_temp8, c);
+                // report
+                char c = 0x20;
+                if ((l_temp8 > 0x1f) && (l_temp8 < 0x80))
+                    c = l_temp8;
+                printf("byte copy input: i %ld j %ld in_ptr %ld out_ptr %ld - %02X (%c)\n", i, j, in_ptr, out_ptr, l_temp8, c);
                 in_ptr++;
                 out_ptr++;
             }

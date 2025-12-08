@@ -75,18 +75,18 @@ void process32()
     lzss32_prepare_default_dictionary(&ctx32, plain32);
     lzss32_prepare_pointer_pool(&ctx32, plain32, plain32_len);
     printf("plain32_len %d ", plain32_len);
-    ccct_print_hex((uint8_t *)plain32 + LZSS32_WINDOW_SIZE, plain32_len);
+//    ccct_print_hex((uint8_t *)plain32 + LZSS32_WINDOW_SIZE, plain32_len);
     //    printf("dictionary: start at %d ", ctx.seed_dictionary_start);
     //    ccct_print_hex(plain + ctx.seed_dictionary_start, WINDOW_SIZE - ctx.seed_dictionary_start);
     size_t compsize;
     lzss32_encode(&ctx32, plain32, plain32_len, comp, &compsize);
     printf("comp (%ld bytes) ", compsize);
-    ccct_print_hex((uint8_t *)comp, compsize);
+//    ccct_print_hex((uint8_t *)comp, compsize);
     size_t decompsize32;
     lzss32_prepare_default_dictionary(&ctx32, decomp32);
     lzss32_decode(&ctx32, comp, compsize, decomp32, &decompsize32);
     printf("decomp32 (%ld bytes ratio %3.5f) ", decompsize32, (float)compsize / (float)decompsize32 * 100.0);
-    ccct_print_hex((uint8_t *)decomp32 + LZSS32_WINDOW_SIZE, decompsize32);
+//    ccct_print_hex((uint8_t *)decomp32 + LZSS32_WINDOW_SIZE, decompsize32);
     //    printf("P:%s\nD:%s\n", l_plain, decomp + WINDOW_SIZE);
     printf("memcmp plain32/decomp32: %d\n", memcmp(plain32 + LZSS32_WINDOW_SIZE, decomp32 + LZSS32_WINDOW_SIZE, decompsize32));
     //    for (size_t i = 0; i < decompsize; ++i) {
@@ -180,6 +180,7 @@ int listdir(const char *path) {
             case S_IFREG:
             {
                 //printf("regular file\n");
+                load_file32(entry->d_name);
                 load_file4(entry->d_name);
             }
             break;
@@ -209,9 +210,9 @@ int main(int argc, char **argv)
     }
 
     chdir(argv[1]);
-    //listdir(".");
-    load_file4(argv[1]);
-    load_file32(argv[1]);
+    listdir(".");
+//    load_file32(argv[1]);
+//    load_file4(argv[1]);
     lzss4_free_context(&ctx4);
     lzss32_free_context(&ctx32);
 
