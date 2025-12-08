@@ -594,8 +594,8 @@ void extract()
 			bh.plainsize = ntohl(bh.plainsize);
 
 			if (g_verbose) {
-				color_printf("*acarith:*d block: *h%d*d ", block_ctr);
-				color_printf("comp. chain: ");
+				color_printf("*acarith:*d blk: *h%d*d ", block_ctr);
+				color_printf("cc: ");
 				if ((bh.scheme & scheme_stored) == scheme_stored) {
 					color_printf("*hSTORED *d");
 				} else {
@@ -608,11 +608,11 @@ void extract()
 					if ((bh.scheme & scheme_ac) == scheme_ac)
 						color_printf("*hAC *d");
 				}
-				color_printf("comp. size: *h%ld*d ", bh.total_compsize);
-				color_printf("LZSS int: *h%ld*d ", bh.lzss_intermediate);
-				color_printf("RLE int: *h%ld*d ", bh.rle_intermediate);
-				color_printf("plain size: *h%ld*d ", bh.plainsize);
-				color_printf("(ratio: *h%3.5f%%*d)\n", (float)bh.total_compsize / (float)bh.plainsize * 100.0);
+				color_printf("comp: *h%ld*d ", bh.total_compsize);
+				color_printf("LZSSint: *h%ld*d ", bh.lzss_intermediate);
+				color_printf("RLEint: *h%ld*d ", bh.rle_intermediate);
+				color_printf("plain: *h%ld*d ", bh.plainsize);
+				color_printf("ratio: *h%3.5f%%*d\n", (float)bh.total_compsize / (float)bh.plainsize * 100.0);
 			}
 			res = lseek(g_in_fd, bh.total_compsize, SEEK_CUR);
 			if (res < 0) {

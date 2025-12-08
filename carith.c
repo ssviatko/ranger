@@ -137,25 +137,25 @@ const char *carith_strerror(carith_error_t a_errno)
 carith_error_t carith_init_ctx(carith_comp_ctx *ctx, size_t a_worksize)
 {
     ctx->plain = NULL;
-    ctx->plain = malloc(a_worksize);
+    ctx->plain = malloc(LZSS32_WINDOW_SIZE + (a_worksize * 3 / 2));
     if (ctx->plain == NULL) {
         return CARITH_ERR_MEMORY;
     }
     ctx->rleenc = NULL;
-    ctx->rleenc = malloc(a_worksize * 3 / 2); // plain guard size 150%
+    ctx->rleenc = malloc(LZSS32_WINDOW_SIZE + (a_worksize * 3 / 2)); // plain guard size 150%
     if (ctx->rleenc == NULL) {
         free(ctx->plain);
         return CARITH_ERR_MEMORY;
     }
     ctx->rledec = NULL;
-    ctx->rledec = malloc(a_worksize * 3 / 2); // plain guard size 150%
+    ctx->rledec = malloc(LZSS32_WINDOW_SIZE + (a_worksize * 3 / 2)); // plain guard size 150%
     if (ctx->rledec == NULL) {
         free(ctx->plain);
         free(ctx->rleenc);
         return CARITH_ERR_MEMORY;
     }
     ctx->comp = NULL;
-    ctx->comp = malloc(a_worksize * 3 / 2); // comp guard size 150%
+    ctx->comp = malloc(LZSS32_WINDOW_SIZE + (a_worksize * 3 / 2)); // comp guard size 150%
     if (ctx->comp == NULL) {
         free(ctx->plain);
         free(ctx->rleenc);
@@ -163,7 +163,7 @@ carith_error_t carith_init_ctx(carith_comp_ctx *ctx, size_t a_worksize)
         return CARITH_ERR_MEMORY;
     }
     ctx->decomp = NULL;
-    ctx->decomp = malloc(a_worksize);
+    ctx->decomp = malloc(LZSS_WINDOW_SIZE + (a_worksize * 3 / 2));
     if (ctx->decomp == NULL) {
         free(ctx->plain);
         free(ctx->rleenc);
@@ -604,7 +604,7 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
     }
 
     // eight options here: RLE only, RLE/LZSS/AC, RLE/AC, LZSS/AC, and AC only, plus 3 extra LZSS32 substitutions.
-    enum { RLEONLY, LZSSONLY, RLELZSSAC, RLEAC, LZSSAC, ACONLY, LZSS32ONLY, RLELZSS32AC, LZSS32AC } l_schemenum;
+    enum { RLEONLY, LZSSONLY, RLELZSSAC, RLEAC, RLELZSS, RLELZSS32, LZSSAC, ACONLY, LZSS32ONLY, RLELZSS32AC, LZSS32AC } l_schemenum;
     switch (ctx->scheme & 0xf0) {
         case 0x40: l_schemenum = RLEONLY; break;
         case 0x20: l_schemenum = LZSSONLY; break;
@@ -616,7 +616,7 @@ carith_error_t carith_compress(carith_comp_ctx *ctx)
         case 0xa0: l_schemenum = LZSSAC; break;
         case 0x90: l_schemenum = LZSS32AC; break;
         default: {
-            fprintf(stderr, "unexpected scheme byte value: %02X\n", ctx->scheme);
+            fprintf(stderr, "carith_compress: unexpected scheme byte value: %02X\n", ctx->scheme);
             exit(EXIT_FAILURE);
         }
     }
@@ -748,25 +748,32 @@ carith_error_t carith_extract(carith_comp_ctx *ctx)
     }
 
     // eight options here: RLE only, RLE/LZSS/AC, RLE/AC, LZSS/AC, and AC only, plus 3 extra LZSS32 substitutions.
-    enum { RLEONLY, LZSSONLY, RLELZSSAC, RLEAC, LZSSAC, ACONLY, LZSS32ONLY, RLELZSS32AC, LZSS32AC } l_schemenum;
-    switch (ctx->scheme & 0xf0) {
+    enum { RLEONLY, LZSSONLY, RLELZSSAC, RLEAC, RLELZSS, RLELZSS32, LZSSAC, ACONLY, LZSS32ONLY, RLELZSS32AC, LZSS32AC } l_schemenum;
+    ctx->scheme &= 0xf0;
+    switch (ctx->scheme) {
         case 0x40: l_schemenum = RLEONLY; break;
         case 0x20: l_schemenum = LZSSONLY; break;
         case 0x10: l_schemenum = LZSS32ONLY; break;
         case 0x80: l_schemenum = ACONLY; break;
         case 0xc0: l_schemenum = RLEAC; break;
+        case 0x60: l_schemenum = RLELZSS; break;
+        case 0x50: l_schemenum = RLELZSS32; break;
         case 0xe0: l_schemenum = RLELZSSAC; break;
         case 0xd0: l_schemenum = RLELZSS32AC; break;
         case 0xa0: l_schemenum = LZSSAC; break;
         case 0x90: l_schemenum = LZSS32AC; break;
         default: {
-            fprintf(stderr, "unexpected scheme byte value: %02X\n", ctx->scheme);
+            fprintf(stderr, "carith_extract: unexpected scheme byte value: %02X\n", ctx->scheme);
             exit(EXIT_FAILURE);
         }
     }
 
     // if we're doing RLE or LZSS only, just skip all the AC stuff
     if ((l_schemenum == RLEONLY) || (l_schemenum == LZSSONLY) || (l_schemenum == LZSS32ONLY))
+        goto carith_extract_skipac;
+
+    // also the RLE/LZSS and RLE/LZSS32 modes
+    if ((l_schemenum == RLELZSS) || (l_schemenum == RLELZSS32))
         goto carith_extract_skipac;
 
     // if we're using AC and RLE, change ac_dest to point to rledec
@@ -804,7 +811,7 @@ carith_extract_skipac:
         err = lzss4_prepare_default_dictionary(&ctx->lzss4_context, ctx->rledec);
         err = lzss4_decode(&ctx->lzss4_context, ctx->comp, ctx->comp_len, ctx->rledec, &ctx->rledec_len);
         if (err != LZSS_ERR_NONE) {
-            fprintf(stderr, "lzss4 error: %s", lzss4_strerror(err));
+            fprintf(stderr, "LZSSONLY lzss4 error: %s", lzss4_strerror(err));
             exit(EXIT_FAILURE);
         }
         //        printf("ctx->rledec + window(%ld) ", ctx->rledec_len);
@@ -817,11 +824,31 @@ carith_extract_skipac:
         err32 = lzss32_prepare_default_dictionary(&ctx->lzss32_context, ctx->rledec);
         err32 = lzss32_decode(&ctx->lzss32_context, ctx->comp, ctx->comp_len, ctx->rledec, &ctx->rledec_len);
         if (err32 != LZSS32_ERR_NONE) {
-            fprintf(stderr, "lzss32 error: %s", lzss32_strerror(err32));
+            fprintf(stderr, "LZSS32ONLY lzss32 error: %s", lzss32_strerror(err32));
             exit(EXIT_FAILURE);
         }
         memcpy(ctx->decomp, ctx->rledec + LZSS32_WINDOW_SIZE, ctx->rledec_len);
         ctx->decomp_len = ctx->rledec_len;
+    } else if (l_schemenum == RLELZSS) {
+        memcpy(ctx->rledec, ctx->comp, ctx->comp_len);
+        lzss4_prepare_default_dictionary(&ctx->lzss4_context, ctx->lzssdec);
+        err = lzss4_decode(&ctx->lzss4_context, ctx->rledec, ctx->comp_len, ctx->lzssdec, &ctx->rledec_len);
+        if (err != LZSS_ERR_NONE) {
+            fprintf(stderr, "RLELZSS lzss4 error: %s", lzss4_strerror(err));
+//            ccct_print_hex(ctx->rledec, ctx->comp_len);
+            exit(EXIT_FAILURE);
+        }
+        // and then do the RLE decode
+        rle_decode(ctx->lzssdec + LZSS_WINDOW_SIZE, ctx->decomp, ctx->rledec_len, &ctx->decomp_len);
+    } else if (l_schemenum == RLELZSS32) {
+        memcpy(ctx->rledec, ctx->comp, ctx->comp_len);
+        lzss32_prepare_default_dictionary(&ctx->lzss32_context, ctx->lzssdec);
+        err32 = lzss32_decode(&ctx->lzss32_context, ctx->rledec, ctx->comp_len, ctx->lzssdec, &ctx->rledec_len);
+        if (err32 != LZSS32_ERR_NONE) {
+            fprintf(stderr, "RLELZSS32 lzss32 error: %s", lzss32_strerror(err32));
+            exit(EXIT_FAILURE);
+        }
+        rle_decode(ctx->lzssdec + LZSS32_WINDOW_SIZE, ctx->decomp, ctx->rledec_len, &ctx->decomp_len);
     } else if (l_schemenum == RLEAC) {
         // AC operation decomped into rledec, so decode it
         rle_decode(ctx->rledec, ctx->decomp, ctx->rledec_len, &ctx->decomp_len);
@@ -831,7 +858,7 @@ carith_extract_skipac:
         lzss4_prepare_default_dictionary(&ctx->lzss4_context, ctx->rledec);
         err = lzss4_decode(&ctx->lzss4_context, ctx->lzssdec, ctx->lzssdec_len, ctx->rledec, &ctx->rledec_len);
         if (err != LZSS_ERR_NONE) {
-            fprintf(stderr, "lzss4 error: %s", lzss4_strerror(err));
+            fprintf(stderr, "RLELZSSAC lzss4 error: %s", lzss4_strerror(err));
             exit(EXIT_FAILURE);
         }
         // and then do the RLE decode
@@ -840,7 +867,7 @@ carith_extract_skipac:
         lzss32_prepare_default_dictionary(&ctx->lzss32_context, ctx->rledec);
         err32 = lzss32_decode(&ctx->lzss32_context, ctx->lzssdec, ctx->lzssdec_len, ctx->rledec, &ctx->rledec_len);
         if (err32 != LZSS32_ERR_NONE) {
-            fprintf(stderr, "lzss32 error: %s", lzss32_strerror(err32));
+            fprintf(stderr, "RLELZSS32AC lzss32 error: %s", lzss32_strerror(err32));
             exit(EXIT_FAILURE);
         }
         rle_decode(ctx->rledec + LZSS32_WINDOW_SIZE, ctx->decomp, ctx->rledec_len, &ctx->decomp_len);
@@ -849,7 +876,7 @@ carith_extract_skipac:
         lzss4_prepare_default_dictionary(&ctx->lzss4_context, ctx->rledec);
         err = lzss4_decode(&ctx->lzss4_context, ctx->lzssdec, ctx->lzssdec_len, ctx->rledec, &ctx->rledec_len);
         if (err != LZSS_ERR_NONE) {
-            fprintf(stderr, "lzss4 error: %s what the AC decompressor gave us: len %ld", lzss4_strerror(err), ctx->lzssdec_len);
+            fprintf(stderr, "LZSSAC lzss4 error: %s what the AC decompressor gave us: len %ld", lzss4_strerror(err), ctx->lzssdec_len);
             ccct_print_hex(ctx->lzssdec, ctx->lzssdec_len);
             exit(EXIT_FAILURE);
         }
@@ -861,7 +888,7 @@ carith_extract_skipac:
         lzss32_prepare_default_dictionary(&ctx->lzss32_context, ctx->rledec);
         err32 = lzss32_decode(&ctx->lzss32_context, ctx->lzssdec, ctx->lzssdec_len, ctx->rledec, &ctx->rledec_len);
         if (err32 != LZSS32_ERR_NONE) {
-            fprintf(stderr, "lzss32 error: %s what the AC decompressor gave us: len %ld", lzss32_strerror(err32), ctx->lzssdec_len);
+            fprintf(stderr, "LZSS32AC lzss32 error: %s what the AC decompressor gave us: len %ld", lzss32_strerror(err32), ctx->lzssdec_len);
             ccct_print_hex(ctx->lzssdec, ctx->lzssdec_len);
             exit(EXIT_FAILURE);
         }
