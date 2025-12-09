@@ -64,8 +64,8 @@ typedef struct {
 	uint32_t rle_intermediate;
 	uint32_t lzss_intermediate;
 	uint32_t total_compsize; // comp_len + freq_comp_len
-	uint16_t freq_comp_len; // freq_comp_len
-	uint32_t plain_len;
+	uint16_t freqsize; // freq_comp_len
+	uint32_t plainsize;
 } block_header_t;
 
 // concurrency
@@ -325,25 +325,78 @@ void compress()
 		// all our threads are done and the plains are all contained in the ctx data structures
 		color_debug("processing %d blocks\n", i);
 		for (j = 0; j < i; ++j) {
-			block_header_t bh;
-			bh.scheme = ctx[j].scheme;
-			bh.rle_intermediate = htonl(ctx[j].rle_intermediate);
-			l_fh.total_rle_len += ctx[j].rle_intermediate;
-			bh.lzss_intermediate = htonl(ctx[j].lzss_intermediate);
-			l_fh.total_lzss_len += ctx[j].lzss_intermediate;
-			bh.total_compsize = htonl(ctx[j].comp_len + ctx[j].freq_comp_len);
-			bh.freq_comp_len = htons(ctx[j].freq_comp_len);
-			bh.plain_len = htonl(ctx[j].plain_len);
-
-			// write block header
-			color_debug("block %ld writing header..\n", j);
-			res = write(g_out_fd, &bh, sizeof(bh));
+			// write block scheme
+			color_debug("block %ld writing scheme %02X\n", ctx->scheme);
+			res = write(g_out_fd, &ctx[j].scheme, sizeof(uint8_t));
 			if (res < 0) {
 				color_err_printf(1, "carith: unable to write to output file.");
 				exit(EXIT_FAILURE);
 			}
-			if (res != sizeof(bh)) {
-				color_err_printf(0, "carith: difficulty writing block header to output file: wrote %ld expected to write %ld.", res, sizeof(bh));
+			if (res != sizeof(uint8_t)) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(uint8_t));
+				exit(EXIT_FAILURE);
+			}
+			// write rle_intermediate to file as network byte order uint32_t
+			uint32_t l_total = ctx[j].rle_intermediate;
+			color_debug("block %ld writing rle_intermediate %ld\n", j, l_total);
+			l_fh.total_rle_len += l_total;
+			l_total = htonl(l_total);
+			res = write(g_out_fd, &l_total, sizeof(l_total));
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != sizeof(l_total)) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(l_total));
+				exit(EXIT_FAILURE);
+			}
+			// write lzss_intermediate to file as network byte order uint32_t
+			l_total = ctx[j].lzss_intermediate;
+			color_debug("block %ld writing lzss_intermediate %ld\n", j, l_total);
+			l_fh.total_lzss_len += l_total;
+			l_total = htonl(l_total);
+			res = write(g_out_fd, &l_total, sizeof(l_total));
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != sizeof(l_total)) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(l_total));
+				exit(EXIT_FAILURE);
+			}
+			// write comp_len + freq_comp_len to file as network byte order uint32_t
+			l_total = ctx[j].comp_len + ctx[j].freq_comp_len;
+			l_total = htonl(l_total);
+			res = write(g_out_fd, &l_total, sizeof(l_total));
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != sizeof(l_total)) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(l_total));
+				exit(EXIT_FAILURE);
+			}
+			// write freq_comp_len to file as network byte order uint16_t
+			uint16_t l_freqtotal = ctx[j].freq_comp_len;
+			l_freqtotal = htons(l_freqtotal);
+			res = write(g_out_fd, &l_freqtotal, sizeof(l_freqtotal));
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != sizeof(l_freqtotal)) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(l_freqtotal));
+				exit(EXIT_FAILURE);
+			}
+			// write block plain_len so the decompressor will know when to stop
+			l_total = htonl(ctx[j].plain_len);
+			res = write(g_out_fd, &l_total, sizeof(l_total));
+			if (res < 0) {
+				color_err_printf(1, "carith: unable to write to output file.");
+				exit(EXIT_FAILURE);
+			}
+			if (res != sizeof(l_total)) {
+				color_err_printf(0, "carith: difficulty writing to output file: wrote %ld expected to write %ld.", res, sizeof(l_total));
 				exit(EXIT_FAILURE);
 			}
 			// write frequency table
@@ -522,10 +575,9 @@ void extract()
 		exit(EXIT_FAILURE);
 	}
 
-	block_header_t bh;
-
 	if ((g_mode == MODE_TELL) && (g_showblocks == 1)) {
 		int block_ctr = 0;
+		block_header_t bh;
 		int blockscan_eof = 0;
 
 		do {
@@ -538,8 +590,8 @@ void extract()
 			bh.rle_intermediate = ntohl(bh.rle_intermediate);
 			bh.lzss_intermediate = ntohl(bh.lzss_intermediate);
 			bh.total_compsize = ntohl(bh.total_compsize);
-			bh.freq_comp_len = ntohs(bh.freq_comp_len);
-			bh.plain_len = ntohl(bh.plain_len);
+			bh.freqsize = ntohs(bh.freqsize);
+			bh.plainsize = ntohl(bh.plainsize);
 
 			if (g_verbose) {
 				color_printf("*acarith:*d blk: *h%d*d ", block_ctr);
@@ -559,8 +611,8 @@ void extract()
 				color_printf("comp: *h%ld*d ", bh.total_compsize);
 				color_printf("LZSSint: *h%ld*d ", bh.lzss_intermediate);
 				color_printf("RLEint: *h%ld*d ", bh.rle_intermediate);
-				color_printf("plain: *h%ld*d ", bh.plain_len);
-				color_printf("ratio: *h%3.5f%%*d\n", (float)bh.total_compsize / (float)bh.plain_len * 100.0);
+				color_printf("plain: *h%ld*d ", bh.plainsize);
+				color_printf("ratio: *h%3.5f%%*d\n", (float)bh.total_compsize / (float)bh.plainsize * 100.0);
 			}
 			res = lseek(g_in_fd, bh.total_compsize, SEEK_CUR);
 			if (res < 0) {
@@ -621,6 +673,13 @@ void extract()
 	int l_docontinue = 0;
 	uint32_t l_crc = 0;
 	uint32_t l_block_crc = 0;
+	uint32_t l_read_compsize;
+	uint32_t l_read_totalcompsize;
+	uint16_t l_read_freqsize;
+	uint32_t l_read_plainsize;
+	uint32_t l_read_rleintermediate;
+	uint32_t l_read_lzssintermediate;
+	uint8_t l_read_scheme;
 
 	// spin up and init threads
 	for (i = 0; i < g_threads; ++i) {
@@ -637,8 +696,7 @@ void extract()
 	do {
 		g_tally = 0;
 		for (i = 0; i < g_threads; ++i) {
-			// read block header
-			res = read(g_in_fd, &bh, sizeof(bh));
+			res = read(g_in_fd, &l_read_scheme, sizeof(uint8_t));
 			if (res == 0) {
 				// eof
 				l_eof = 1;
@@ -650,32 +708,77 @@ void extract()
 				color_err_printf(1, "unable to read input file");
 				exit(EXIT_FAILURE);
 			}
-			if (res < sizeof(bh)) {
-				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(bh));
+			if (res < sizeof(uint8_t)) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(uint8_t));
 				exit(EXIT_FAILURE);
 			}
-			bh.rle_intermediate = ntohl(bh.rle_intermediate);
-			bh.lzss_intermediate = ntohl(bh.lzss_intermediate);
-			bh.total_compsize = ntohl(bh.total_compsize);
-			bh.freq_comp_len = ntohs(bh.freq_comp_len);
-			bh.plain_len = ntohl(bh.plain_len);
-			color_debug("block %d totalcompsize %d freqsize %d rle_intermediate %ld lzss_intermediate %ld\n", l_block_ctr, bh.total_compsize, bh.freq_comp_len, bh.rle_intermediate, bh.lzss_intermediate);
-
-			ctx[i].block_num = l_block_ctr;
-			ctx[i].plain_len = bh.plain_len;
-			ctx[i].rle_intermediate = bh.rle_intermediate;
-			ctx[i].lzss_intermediate = bh.lzss_intermediate;
-			ctx[i].freq_comp_len = bh.freq_comp_len;
-			res = read(g_in_fd, ctx[i].freq_comp, bh.freq_comp_len);
+			res = read(g_in_fd, &l_read_rleintermediate, sizeof(uint32_t));
 			if (res < 0) {
 				color_err_printf(1, "unable to read input file");
 				exit(EXIT_FAILURE);
 			}
-			if (res < bh.freq_comp_len) {
-				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, bh.freq_comp_len);
+			if (res < sizeof(uint32_t)) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(uint32_t));
 				exit(EXIT_FAILURE);
 			}
-			uint32_t l_read_compsize = bh.total_compsize - bh.freq_comp_len;
+			l_read_rleintermediate = ntohl(l_read_rleintermediate);
+			res = read(g_in_fd, &l_read_lzssintermediate, sizeof(uint32_t));
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < sizeof(uint32_t)) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(uint32_t));
+				exit(EXIT_FAILURE);
+			}
+			l_read_lzssintermediate = ntohl(l_read_lzssintermediate);
+			res = read(g_in_fd, &l_read_totalcompsize, sizeof(uint32_t));
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < sizeof(uint32_t)) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(uint32_t));
+				exit(EXIT_FAILURE);
+			}
+			l_read_totalcompsize = ntohl(l_read_totalcompsize);
+			res = read(g_in_fd, &l_read_freqsize, sizeof(uint16_t));
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < sizeof(uint16_t)) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(uint16_t));
+				exit(EXIT_FAILURE);
+			}
+			l_read_freqsize = ntohs(l_read_freqsize);
+			l_read_compsize = l_read_totalcompsize - l_read_freqsize;
+			res = read(g_in_fd, &l_read_plainsize, sizeof(uint32_t));
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < sizeof(uint32_t)) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, sizeof(uint32_t));
+				exit(EXIT_FAILURE);
+			}
+			l_read_plainsize = ntohl(l_read_plainsize);
+
+			color_debug("block %d totalcompsize %d compsize %d freqsize %d rle_intermediate %ld lzss_intermediate %ld\n", l_block_ctr, l_read_totalcompsize, l_read_compsize, l_read_freqsize, l_read_rleintermediate, l_read_lzssintermediate);
+			ctx[i].block_num = l_block_ctr;
+			ctx[i].plain_len = l_read_plainsize;
+			ctx[i].rle_intermediate = l_read_rleintermediate;
+			ctx[i].lzss_intermediate = l_read_lzssintermediate;
+			ctx[i].freq_comp_len = l_read_freqsize;
+			res = read(g_in_fd, ctx[i].freq_comp, l_read_freqsize);
+			if (res < 0) {
+				color_err_printf(1, "unable to read input file");
+				exit(EXIT_FAILURE);
+			}
+			if (res < l_read_freqsize) {
+				color_err_printf(0, "problems reading input file, read %ld expected to read %ld", res, l_read_freqsize);
+				exit(EXIT_FAILURE);
+			}
 			ctx[i].comp_len = l_read_compsize;
 			res = read(g_in_fd, ctx[i].comp, l_read_compsize);
 			if (res < 0) {
@@ -688,7 +791,7 @@ void extract()
 			}
 
 			// populate a thread and signal it
-			ctx[i].scheme = bh.scheme;
+			ctx[i].scheme = l_read_scheme;
 			pthread_mutex_lock(&twa[i].sig_mtx);
 			twa[i].cur_block = l_block_ctr;
 			twa[i].sigflag = 1;
