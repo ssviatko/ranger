@@ -59,6 +59,15 @@ typedef struct {
 	uint32_t segsize;
 } file_header;
 
+typedef struct {
+	uint8_t scheme;
+	uint32_t rle_intermediate;
+	uint32_t lzss_intermediate;
+	uint32_t total_compsize; // comp_len + freq_comp_len
+	uint16_t freqsize; // freq_comp_len
+	uint32_t plainsize;
+} block_header_t;
+
 // concurrency
 int g_threads = 8; // default thread count
 pthread_mutex_t g_tally_mtx;
@@ -567,15 +576,6 @@ void extract()
 	}
 
 	if ((g_mode == MODE_TELL) && (g_showblocks == 1)) {
-		typedef struct {
-			uint8_t scheme;
-			uint32_t rle_intermediate;
-			uint32_t lzss_intermediate;
-			uint32_t total_compsize;
-			uint16_t freqsize;
-			uint32_t plainsize;
-		} block_header_t;
-
 		int block_ctr = 0;
 		block_header_t bh;
 		int blockscan_eof = 0;
