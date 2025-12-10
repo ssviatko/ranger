@@ -506,15 +506,15 @@ void extract()
 			color_printf("*acarith:*d --- compression chain:    ");
 			if ((l_fh.scheme & scheme_roulette) != scheme_roulette) {
 				if ((l_fh.scheme & scheme_rle) == scheme_rle)
-					color_printf("*hRLE *d");
+					color_printf("*bRLE *d");
 				if ((l_fh.scheme & scheme_lzss4) == scheme_lzss4)
-					color_printf("*hLZSS4 *d");
+					color_printf("*bLZSS4 *d");
 				if ((l_fh.scheme & scheme_lzss32) == scheme_lzss32)
-					color_printf("*hLZSS32 *d");
+					color_printf("*bLZSS32 *d");
 				if ((l_fh.scheme & scheme_ac) == scheme_ac)
-					color_printf("*hAC *d");
+					color_printf("*bAC *d");
 			} else {
-				color_printf("*hROULETTE*d ");
+				color_printf("*bROULETTE*d ");
 				if (!g_showblocks) color_printf("(use *h-t*d with *h-b*d or *h--showblocks*d to interrogate individual blocks)");
 			}
 			printf("\n");
@@ -548,16 +548,16 @@ void extract()
 				color_printf("*acarith:*d blk: *h%d*d ", block_ctr);
 				color_printf("cc: ");
 				if ((bh.scheme & scheme_stored) == scheme_stored) {
-					color_printf("*hSTORED *d");
+					color_printf("*bSTORED *d");
 				} else {
 					if ((bh.scheme & scheme_rle) == scheme_rle)
-						color_printf("*hRLE *d");
+						color_printf("*bRLE *d");
 					if ((bh.scheme & scheme_lzss4) == scheme_lzss4)
-						color_printf("*hLZSS4 *d");
+						color_printf("*bLZSS4 *d");
 					if ((bh.scheme & scheme_lzss32) == scheme_lzss32)
-						color_printf("*hLZSS32 *d");
+						color_printf("*bLZSS32 *d");
 					if ((bh.scheme & scheme_ac) == scheme_ac)
-						color_printf("*hAC *d");
+						color_printf("*bAC *d");
 				}
 				color_printf("comp: *h%ld*d ", bh.total_compsize);
 				color_printf("LZSSint: *h%ld*d ", bh.lzss_intermediate);
@@ -899,6 +899,7 @@ int main(int argc, char **argv)
 				color_printf("*a  -? (--help)*d this screen\n");
 				color_printf("*a     (--debug)*d enable debug mode\n");
 				color_printf("*a     (--nocolor)*d defeat colors\n");
+				color_printf("*a     (--theme)*d choose color theme (0-3)\n");
 				color_printf("*a     (--threads) <count>*d specify number of theads to use (default *h%d*d)\n", g_threads);
 				color_printf("*a  -g (--segsize) <bytes>*d specify size of segments (default *h%d*d)\n", DEFAULT_SEGSIZE);
 				color_printf("*a  -v (--verbose)*d enable verbose mode\n");
