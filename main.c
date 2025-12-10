@@ -32,7 +32,7 @@ int g_rleonly = 0;
 int g_lzssonly = 0;
 int g_uselzss32 = 0;
 int g_showblocks = 0;
-int g_roulette = 0;
+int g_roulette = 1;
 int g_color_theme = 0;
 uint32_t g_segsize = DEFAULT_SEGSIZE;
 enum { MODE_NONE, MODE_COMPRESS, MODE_EXTRACT, MODE_TELL } g_mode = MODE_NONE;
@@ -99,7 +99,8 @@ enum {
 	OPT_NOLZSS,
 	OPT_LZSSONLY,
 	OPT_USELZSS32,
-	OPT_COLOR_THEME
+	OPT_COLOR_THEME,
+	OPT_NOROULETTE
 };
 
 struct option g_options[] = {
@@ -120,7 +121,7 @@ struct option g_options[] = {
 	{ "rleonly", no_argument, NULL, OPT_RLEONLY },
 	{ "nokeep", no_argument, NULL, OPT_NOKEEP },
 	{ "showblocks", no_argument, NULL, 'b' },
-	{ "roulette", no_argument, NULL, 'r' },
+	{ "noicms", no_argument, NULL, OPT_NOROULETTE },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -514,7 +515,7 @@ void extract()
 				if ((l_fh.scheme & scheme_ac) == scheme_ac)
 					color_printf("*bAC *d");
 			} else {
-				color_printf("*bROULETTE*d ");
+				color_printf("*bICMS*d ");
 				if (!g_showblocks) color_printf("(use *h-t*d with *h-b*d or *h--showblocks*d to interrogate individual blocks)");
 			}
 			printf("\n");
@@ -790,7 +791,7 @@ int main(int argc, char **argv)
 	color_init(g_nocolor, g_debug);
 	color_set_theme(THEME_GREEN);
 
-	while ((opt = getopt_long(argc, argv, "?g:vcxtbr", g_options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "?g:vcxtb", g_options, NULL)) != -1) {
 		switch (opt) {
 			case OPT_DEBUG:
 			{
@@ -879,9 +880,9 @@ int main(int argc, char **argv)
 				g_uselzss32 = 1;
 			}
 			break;
-			case 'r': // roulette
+			case OPT_NOROULETTE: // noroulette
 			{
-				g_roulette = 1;
+				g_roulette = 0;
 			}
 			break;
 			case OPT_COLOR_THEME:
@@ -910,7 +911,7 @@ int main(int argc, char **argv)
 				color_printf("*a     (--uselzss32)*d Use LZSS32 instead of LZSS4\n");
 				color_printf("*a     (--nokeep)*d delete input files, like UNIX compress command\n");
 				color_printf("*a  -b (--showblocks)*d Show block info in --tell mode\n");
-				color_printf("*a  -r (--roulette)*d use block-by-block data profiling\n");
+				color_printf("*a     (--nocims)*d defeat intelligent compression method selection\n");
 				color_printf("*hoperational modes*a (choose only one)*d\n");
 				color_printf("*a  -c (--compress) <file>*d compress a file\n");
 				color_printf("*a  -x (--extract) <file.carith>*d extract a file\n");
@@ -946,9 +947,10 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	if ((g_roulette == 1) && ((g_rleonly == 1) || (g_lzssonly == 1) || (g_uselzss32 == 1) || (g_norle == 1) || (g_nolzss == 1))) {
-		color_err_printf(0, "carith: the following switches may not be used with --roulette:");
-		color_err_printf(0, "carith: --rleonly, --lzssonly, --uselzss32, --norle, --nolzss.\n");
-		color_err_printf(0, "carith: in roulette mode, carith decides which algorithm to use on a block by block basis.");
+		color_err_printf(0, "carith: the following switches may not be used with intelligent compression method selection enabled:");
+		color_err_printf(0, "carith: --rleonly, --lzssonly, --uselzss32, --norle, --nolzss.");
+		color_err_printf(0, "carith: in ICMS mode, carith decides which compression method(s) to use on a block by block basis.");
+		color_err_printf(0, "carith: if you wish to manually set the method, use --noicms in addition to these switches.");
 		color_err_printf(0, "carith: use -? or --help for usage information.");
 		exit(EXIT_FAILURE);
 	}
@@ -1000,7 +1002,7 @@ int main(int argc, char **argv)
 		if (g_verbose && g_nolzss) color_printf("*acarith:*d defeating LZSS encode before arithmetic compression.\n");
 		if (g_verbose && g_lzssonly && !g_uselzss32) color_printf("*acarith:*d LZSS4 encode file only, no arithmetic compression.\n");
 		if (g_verbose && g_lzssonly && g_uselzss32) color_printf("*acarith:*d LZSS32 encode file only, no arithmetic compression.\n");
-		if (g_verbose && g_roulette) color_printf("*acarith:*d roulette mode: *hENABLED*d\n");
+		if (g_verbose) color_printf("*acarith:*d ICMS mode: *h%s*d\n", (g_roulette ? "ENABLED" : "DISABLED"));
 		g_in[0] = 0;
 		strcpy(g_in, argv[optind]);
 		verify_file_argument();
