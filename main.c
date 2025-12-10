@@ -500,7 +500,7 @@ void extract()
 			color_printf("*acarith:*d --- size on disk:         *h%ld*d\n", g_in_len);
 			color_printf("*acarith:*d --- compression ratio:    *h%3.5f%%*d\n", (float)l_in_stat.st_size / (float)ntohl(l_fh.total_plain_len) * 100.0);
 			color_printf("*acarith:*d --- original file mode:   *h%08lX*d (*h%s*d)\n", ntohl(l_fh.mode), decimal_mode(ntohl(l_fh.mode)));
-			color_printf("*acarith:*d --- segment size:         *h%d*d\n", ntohl(l_fh.segsize));
+			color_printf("*acarith:*d --- segment size:         *h%dk*d\n", ntohl(l_fh.segsize) / 1024);
 			color_printf("*acarith:*d --- original file CRC:    *h%08X*d\n", ntohl(l_fh.plain_crc));
 			color_printf("*acarith:*d --- compression chain:    ");
 			if ((l_fh.scheme & scheme_roulette) != scheme_roulette) {
@@ -808,7 +808,7 @@ int main(int argc, char **argv)
 			break;
 			case 'g': // segsize
 			{
-				g_segsize = atoi(optarg);
+				g_segsize = atoi(optarg) * 1024;
 			}
 			break;
 			case 'v': // verbose
@@ -900,7 +900,7 @@ int main(int argc, char **argv)
 				color_printf("*a     (--nocolor)*d defeat colors\n");
 				color_printf("*a     (--theme)*d choose color theme (0-3)\n");
 				color_printf("*a     (--threads) <count>*d specify number of theads to use (default *h%d*d)\n", g_threads);
-				color_printf("*a  -g (--segsize) <bytes>*d specify size of segments (default *h%d*d)\n", DEFAULT_SEGSIZE);
+				color_printf("*a  -g (--segsize) <kilobytes>*d specify size of segments (default *h%dk*d)\n", DEFAULT_SEGSIZE / 1024);
 				color_printf("*a  -v (--verbose)*d enable verbose mode\n");
 				color_printf("*a     (--norle)*d defeat RLE encode before arithmetic compression\n");
 				color_printf("*a     (--rleonly)*d RLE encode file only, no arithmetic compression\n");
@@ -968,14 +968,13 @@ int main(int argc, char **argv)
 
 	// police segsize
 	if (g_segsize < 32768) {
-		color_err_printf(0, "carith: need to use segment size of at least 32768.");
+		color_err_printf(0, "carith: need to use segment size of at least 32768 (32k).");
 		exit(EXIT_FAILURE);
 	}
 	if (g_segsize > 16777216) {
-		color_err_printf(0, "carith: segment size limit: 16777216.");
+		color_err_printf(0, "carith: segment size limit: 16777216 (16384k).");
 		exit(EXIT_FAILURE);
 	}
-	if (g_verbose) color_printf("*acarith:*d using *h%d*d byte segment size.\n", g_segsize);
 
 	gettimeofday(&g_start_time, NULL);
 
@@ -994,6 +993,7 @@ int main(int argc, char **argv)
 			color_err_printf(0, "carith: expected file argument.");
 			exit(EXIT_FAILURE);
 		}
+		if (g_verbose) color_printf("*acarith:*d using *h%dk*d segment size.\n", g_segsize / 1024);
 		if (g_verbose) color_printf("*acarith:*d keep mode: *h%s*d\n", (g_keep ? "YES" : "NO"));
 		if (g_verbose && g_norle) color_printf("*acarith:*d defeating RLE encode before arithmetic compression.\n");
 		if (g_verbose && g_rleonly) color_printf("*acarith:*d RLE encode file only, no arithmetic compression.\n");
