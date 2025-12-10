@@ -33,7 +33,7 @@ int g_lzssonly = 0;
 int g_uselzss32 = 0;
 int g_showsegs = 0;
 int g_roulette = 1;
-int g_color_theme = 0;
+int g_color_theme = THEME_PURPLE;
 uint32_t g_segsize = DEFAULT_SEGSIZE;
 enum { MODE_NONE, MODE_COMPRESS, MODE_EXTRACT, MODE_TELL } g_mode = MODE_NONE;
 char g_in[BUFFLEN];
@@ -787,7 +787,7 @@ int main(int argc, char **argv)
 	pthread_mutex_init(&g_tally_mtx, NULL);
 	pthread_cond_init(&g_tally_cond, NULL);
 	color_init(g_nocolor, g_debug);
-	color_set_theme(THEME_GREEN);
+	color_set_theme(g_color_theme);
 
 	while ((opt = getopt_long(argc, argv, "?g:vcxtsk", g_options, NULL)) != -1) {
 		switch (opt) {
@@ -900,7 +900,7 @@ int main(int argc, char **argv)
 				color_printf("*a  -? (--help)*d this screen\n");
 				color_printf("*a     (--debug)*d enable debug mode\n");
 				color_printf("*a     (--nocolor)*d defeat colors\n");
-				color_printf("*a     (--theme)*d choose color theme (0-3)\n");
+				color_printf("*a     (--theme)*d choose color theme 0-3 (default *h3*d)\n");
 				color_printf("*a     (--threads) <count>*d specify number of theads to use (default *h%d*d)\n", g_threads);
 				color_printf("*a  -g (--segsize) <kilobytes>*d specify size of segments (default *h%dk*d)\n", DEFAULT_SEGSIZE / 1024);
 				color_printf("*a  -v (--verbose)*d enable verbose mode\n");
