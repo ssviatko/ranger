@@ -33,6 +33,7 @@ int g_lzssonly = 0;
 int g_uselzss32 = 0;
 int g_showblocks = 0;
 int g_roulette = 0;
+int g_color_theme = 0;
 uint32_t g_segsize = DEFAULT_SEGSIZE;
 enum { MODE_NONE, MODE_COMPRESS, MODE_EXTRACT, MODE_TELL } g_mode = MODE_NONE;
 char g_in[BUFFLEN];
@@ -97,7 +98,8 @@ enum {
 	OPT_NOKEEP,
 	OPT_NOLZSS,
 	OPT_LZSSONLY,
-	OPT_USELZSS32
+	OPT_USELZSS32,
+	OPT_COLOR_THEME
 };
 
 struct option g_options[] = {
@@ -110,6 +112,7 @@ struct option g_options[] = {
 	{ "threads", required_argument, NULL, OPT_THREADS },
 	{ "segsize", required_argument, NULL, 'g' },
 	{ "nocolor", no_argument, NULL, OPT_NOCOLOR },
+	{ "theme", required_argument, NULL, OPT_COLOR_THEME },
 	{ "norle", no_argument, NULL, OPT_NORLE },
 	{ "nolzss", no_argument, NULL, OPT_NOLZSS },
 	{ "lzssonly", no_argument, NULL, OPT_LZSSONLY },
@@ -784,7 +787,8 @@ int main(int argc, char **argv)
 	// initialize threaded environment
 	pthread_mutex_init(&g_tally_mtx, NULL);
 	pthread_cond_init(&g_tally_cond, NULL);
-
+	color_init(g_nocolor, g_debug);
+	color_set_theme(THEME_GREEN);
 
 	while ((opt = getopt_long(argc, argv, "?g:vcxtbr", g_options, NULL)) != -1) {
 		switch (opt) {
@@ -880,10 +884,16 @@ int main(int argc, char **argv)
 				g_roulette = 1;
 			}
 			break;
+			case OPT_COLOR_THEME:
+			{
+				g_color_theme = atoi(optarg);
+				color_set_theme(g_color_theme);
+			}
+			break;
 			case '?':
 			{
 				color_printf("*hcarith (C arithmetic coder) compression utility*d\n");
-				color_printf("build *h%s*d release *h%s*d built on *h%s*d\n", BUILD_NUMBER, RELEASE_NUMBER, BUILD_DATE);
+				color_printf("build *b%s*d release *b%s*d built on *b%s*d\n", BUILD_NUMBER, RELEASE_NUMBER, BUILD_DATE);
 				color_printf("*aby Stephen Sviatko - (C) 2025 Good Neighbors LLC*d\n");
 				color_printf("*husage:*a carith <options> <file>*d\n");
 				color_printf("*a  -? (--help)*d this screen\n");
@@ -911,7 +921,7 @@ int main(int argc, char **argv)
 	}
 
 	setbuf(stdout, NULL); // disable buffering so we can print our color_progress
-	color_init(g_nocolor, g_debug);
+	color_set_theme(g_color_theme);
 
 	// police illogical flag choices
 	if ((g_norle == 1) && (g_rleonly == 1)) {

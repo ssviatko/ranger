@@ -35,6 +35,13 @@
 
 #include "color_print.h"
 
+static char g_ansi_highlight[ANSIBUFFLEN];
+static char g_ansi_heading[ANSIBUFFLEN];
+static char g_ansi_error[ANSIBUFFLEN];
+static char g_ansi_default[ANSIBUFFLEN];
+static char g_ansi_bullet[ANSIBUFFLEN];
+static char g_ansi_debug[ANSIBUFFLEN];
+
 static int g_nocolor; ///< Set to 1 to disable color printing
 static int g_debug;   ///< Set to 1 to enable debug printing
 static pthread_mutex_t g_debug_mtx; ///< protect debug messages in multithreaded environment
@@ -44,6 +51,60 @@ void color_init(const int a_nocolor, const int a_debug)
     g_nocolor = a_nocolor;
     g_debug = a_debug;
     pthread_mutex_init(&g_debug_mtx, NULL);
+}
+
+void color_set_theme(cp_theme_t a_theme)
+{
+    g_ansi_highlight[0] = 0;
+    g_ansi_heading[0] = 0;
+    g_ansi_error[0] = 0;
+    g_ansi_debug[0] = 0;
+    g_ansi_bullet[0] = 0;
+    g_ansi_default[0] = 0;
+
+    switch (a_theme) {
+        default:
+        case THEME_GREEN:
+        {
+            strcpy(g_ansi_highlight, CP_GREEN_COLOR_HIGHLIGHT);
+            strcpy(g_ansi_heading, CP_GREEN_COLOR_HEADING);
+            strcpy(g_ansi_error, CP_GREEN_COLOR_ERROR);
+            strcpy(g_ansi_default, CP_GREEN_COLOR_DEFAULT);
+            strcpy(g_ansi_debug, CP_GREEN_COLOR_DEBUG);
+            strcpy(g_ansi_bullet, CP_GREEN_COLOR_BULLET);
+        }
+        break;
+        case THEME_BLUE:
+        {
+            strcpy(g_ansi_highlight, CP_BLUE_COLOR_HIGHLIGHT);
+            strcpy(g_ansi_heading, CP_BLUE_COLOR_HEADING);
+            strcpy(g_ansi_error, CP_BLUE_COLOR_ERROR);
+            strcpy(g_ansi_default, CP_BLUE_COLOR_DEFAULT);
+            strcpy(g_ansi_debug, CP_BLUE_COLOR_DEBUG);
+            strcpy(g_ansi_bullet, CP_BLUE_COLOR_BULLET);
+        }
+        break;
+        case THEME_RED:
+        {
+            strcpy(g_ansi_highlight, CP_RED_COLOR_HIGHLIGHT);
+            strcpy(g_ansi_heading, CP_RED_COLOR_HEADING);
+            strcpy(g_ansi_error, CP_RED_COLOR_ERROR);
+            strcpy(g_ansi_default, CP_RED_COLOR_DEFAULT);
+            strcpy(g_ansi_debug, CP_RED_COLOR_DEBUG);
+            strcpy(g_ansi_bullet, CP_RED_COLOR_BULLET);
+        }
+        break;
+        case THEME_PURPLE:
+        {
+            strcpy(g_ansi_highlight, CP_PURPLE_COLOR_HIGHLIGHT);
+            strcpy(g_ansi_heading, CP_PURPLE_COLOR_HEADING);
+            strcpy(g_ansi_error, CP_PURPLE_COLOR_ERROR);
+            strcpy(g_ansi_default, CP_PURPLE_COLOR_DEFAULT);
+            strcpy(g_ansi_debug, CP_PURPLE_COLOR_DEBUG);
+            strcpy(g_ansi_bullet, CP_PURPLE_COLOR_BULLET);
+        }
+        break;
+    }
 }
 
 void color_free()
@@ -101,32 +162,32 @@ void color_printf(const char *format, ...)
                 // output highlight
                 if (!g_nocolor) {
                     edited_format[j] = 0;
-                    strcat(edited_format, CP_GREEN_COLOR_HIGHLIGHT);
-                    j += strlen(CP_GREEN_COLOR_HIGHLIGHT);
+                    strcat(edited_format, g_ansi_highlight);
+                    j += strlen(g_ansi_highlight);
                 }
             } else if (c == 'a') {
                 if (!g_nocolor) {
                     edited_format[j] = 0;
-                    strcat(edited_format, CP_GREEN_COLOR_HEADING);
-                    j += strlen(CP_GREEN_COLOR_HEADING);
+                    strcat(edited_format, g_ansi_heading);
+                    j += strlen(g_ansi_heading);
                 }
             } else if (c == 'b') {
                 if (!g_nocolor) {
                     edited_format[j] = 0;
-                    strcat(edited_format, CP_GREEN_COLOR_BULLET);
-                    j += strlen(CP_GREEN_COLOR_BULLET);
+                    strcat(edited_format, g_ansi_bullet);
+                    j += strlen(g_ansi_bullet);
                 }
             } else if (c == 'e') {
                 if (!g_nocolor) {
                     edited_format[j] = 0;
-                    strcat(edited_format, CP_GREEN_COLOR_ERROR);
-                    j += strlen(CP_GREEN_COLOR_ERROR);
+                    strcat(edited_format, g_ansi_error);
+                    j += strlen(g_ansi_error);
                 }
             } else if (c == 'd') {
                 if (!g_nocolor) {
                     edited_format[j] = 0;
-                    strcat(edited_format, CP_GREEN_COLOR_DEFAULT);
-                    j += strlen(CP_GREEN_COLOR_DEFAULT);
+                    strcat(edited_format, g_ansi_default);
+                    j += strlen(g_ansi_default);
                 }
             } else {
                 // unknown escape sequence
@@ -152,14 +213,14 @@ void color_err_printf(int a_strerror, const char *format, ...)
     // call this without a linefeed at the end
     char edited_format[BUFFLEN];
     edited_format[0] = 0;
-    if (!g_nocolor) strcat(edited_format, CP_GREEN_COLOR_ERROR);
+    if (!g_nocolor) strcat(edited_format, g_ansi_error);
     strcat(edited_format, format);
     if (a_strerror) {
         sprintf(edited_format + strlen(edited_format), " : %s\n", strerror(errno));
     } else {
         sprintf(edited_format + strlen(edited_format), "\n");
     }
-    if (!g_nocolor) strcat(edited_format, CP_GREEN_COLOR_DEFAULT);
+    if (!g_nocolor) strcat(edited_format, g_ansi_default);
     va_list args;
     va_start(args, format);
     vfprintf(stderr, edited_format, args);
@@ -174,10 +235,10 @@ void color_debug(const char *format, ...)
     char edited_format[BUFFLEN];
     edited_format[0] = 0;
     if (!g_nocolor)
-        strcat(edited_format, CP_GREEN_COLOR_DEBUG);
+        strcat(edited_format, g_ansi_debug);
     strcat(edited_format, format);
     if (!g_nocolor)
-        strcat(edited_format, CP_GREEN_COLOR_DEFAULT);
+        strcat(edited_format, g_ansi_default);
     va_list args;
     va_start(args, format);
     vprintf(edited_format, args);

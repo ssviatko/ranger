@@ -48,6 +48,7 @@ extern "C" {
 #include <pthread.h>
 
 #define BUFFLEN 1024
+#define ANSIBUFFLEN 20
 
 /* GREEN theme */
 #define CP_GREEN_COLOR_HEADING   "\033[32m"          ///< Heading color
@@ -55,9 +56,41 @@ extern "C" {
 #define CP_GREEN_COLOR_HIGHLIGHT "\033[92m"          ///< Extra bright for highlights
 #define CP_GREEN_COLOR_BULLET    "\033[93m"          ///< Outstanding messages
 #define CP_GREEN_COLOR_DEFAULT   "\033[39m\033[49m"  ///< Return to default terminal color
-#define CP_GREEN_COLOR_DEBUG     "\033[33m"			 ///< Debug messages
+#define CP_GREEN_COLOR_DEBUG     "\033[33m"          ///< Debug messages
+
+/* BLUE theme */
+#define CP_BLUE_COLOR_HEADING   "\033[94m"           ///< Heading color
+#define CP_BLUE_COLOR_ERROR     "\033[91m"           ///< For error messages
+#define CP_BLUE_COLOR_HIGHLIGHT "\033[96m"           ///< Extra bright for highlights
+#define CP_BLUE_COLOR_BULLET    "\033[95m"           ///< Outstanding messages
+#define CP_BLUE_COLOR_DEFAULT   "\033[39m\033[49m"   ///< Return to default terminal color
+#define CP_BLUE_COLOR_DEBUG     "\033[33m"           ///< Debug messages
+
+/* RED theme */
+#define CP_RED_COLOR_HEADING   "\033[31m"            ///< Heading color
+#define CP_RED_COLOR_ERROR     "\033[96m"            ///< For error messages
+#define CP_RED_COLOR_HIGHLIGHT "\033[91m"            ///< Extra bright for highlights
+#define CP_RED_COLOR_BULLET    "\033[93m"            ///< Outstanding messages
+#define CP_RED_COLOR_DEFAULT   "\033[39m\033[49m"    ///< Return to default terminal color
+#define CP_RED_COLOR_DEBUG     "\033[33m"            ///< Debug messages
+
+/* PURPLE theme */
+#define CP_PURPLE_COLOR_HEADING   "\033[35m"         ///< Heading color
+#define CP_PURPLE_COLOR_ERROR     "\033[93m"         ///< For error messages
+#define CP_PURPLE_COLOR_HIGHLIGHT "\033[95m"         ///< Extra bright for highlights
+#define CP_PURPLE_COLOR_BULLET    "\033[96m"         ///< Outstanding messages
+#define CP_PURPLE_COLOR_DEFAULT   "\033[39m\033[49m" ///< Return to default terminal color
+#define CP_PURPLE_COLOR_DEBUG     "\033[33m"         ///< Debug messages
+
+typedef enum {
+    THEME_GREEN,
+    THEME_BLUE,
+    THEME_RED,
+    THEME_PURPLE
+} cp_theme_t;
 
 void color_init         (const int a_nocolor, const int a_debug);
+void color_set_theme    (cp_theme_t a_theme);
 void color_free();
 void color_progress     (uint32_t a_sofar, uint32_t a_total);
 void color_printf       (const char *format, ...);
