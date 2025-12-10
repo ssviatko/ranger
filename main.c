@@ -794,11 +794,13 @@ int main(int argc, char **argv)
 			case OPT_DEBUG:
 			{
 				g_debug = 1;
+				color_set_debug(g_debug);
 			}
 			break;
 			case OPT_NOCOLOR:
 			{
 				g_nocolor = 1;
+				color_set_nocolor(g_nocolor);
 			}
 			break;
 			case OPT_THREADS: // force thread count
@@ -909,7 +911,7 @@ int main(int argc, char **argv)
 				color_printf("*a     (--uselzss32)*d Use LZSS32 instead of LZSS4\n");
 				color_printf("*a  -k (--keep)*d keep input files instead of automatically removing them\n");
 				color_printf("*a  -s (--showsegs)*d Show segment info in --tell mode\n");
-				color_printf("*a     (--nocims)*d defeat intelligent compression method selection\n");
+				color_printf("*a     (--noicms)*d defeat ICMS (intelligent compression method selection)\n");
 				color_printf("*hoperational modes*a (choose only one)*d\n");
 				color_printf("*a  -c (--compress) <file>*d compress a file\n");
 				color_printf("*a  -x (--extract) <file.carith>*d extract a file\n");
@@ -945,9 +947,9 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	if ((g_roulette == 1) && ((g_rleonly == 1) || (g_lzssonly == 1) || (g_uselzss32 == 1) || (g_norle == 1) || (g_nolzss == 1))) {
-		color_err_printf(0, "carith: the following switches may not be used with intelligent compression method selection enabled:");
+		color_err_printf(0, "carith: the following switches may not be used with ICMS (intelligent compression method selection) enabled:");
 		color_err_printf(0, "carith: --rleonly, --lzssonly, --uselzss32, --norle, --nolzss.");
-		color_err_printf(0, "carith: in ICMS mode, carith decides which compression method(s) to use on a block by block basis.");
+		color_err_printf(0, "carith: in ICMS mode, carith decides which compression method(s) to use on a segment by segment basis.");
 		color_err_printf(0, "carith: if you wish to manually set the method, use --noicms in addition to these switches.");
 		color_err_printf(0, "carith: use -? or --help for usage information.");
 		exit(EXIT_FAILURE);

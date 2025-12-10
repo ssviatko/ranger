@@ -91,6 +91,8 @@ typedef enum {
 
 void color_init         (const int a_nocolor, const int a_debug);
 void color_set_theme    (cp_theme_t a_theme);
+void color_set_nocolor  (const int a_nocolor);
+void color_set_debug    (const int a_debug);
 void color_free();
 void color_progress     (uint32_t a_sofar, uint32_t a_total);
 void color_printf       (const char *format, ...);

@@ -53,6 +53,16 @@ void color_init(const int a_nocolor, const int a_debug)
     pthread_mutex_init(&g_debug_mtx, NULL);
 }
 
+void color_set_nocolor(const int a_nocolor)
+{
+    g_nocolor = a_nocolor;
+}
+
+void color_set_debug(const int a_debug)
+{
+    g_debug = a_debug;
+}
+
 void color_set_theme(cp_theme_t a_theme)
 {
     g_ansi_highlight[0] = 0;
