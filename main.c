@@ -58,7 +58,7 @@ typedef struct {
 	uint32_t total_rle_len;
 	uint32_t total_lzss_len;
 	uint32_t segsize;
-} file_header;
+} file_header_t;
 
 typedef struct {
 	uint8_t scheme;
@@ -216,7 +216,7 @@ void compress()
 	int l_eof = 0;
 	int l_docontinue = 0;
 	uint32_t l_block_ctr = 0;
-	file_header l_fh;
+	file_header_t l_fh;
 	size_t l_sofar;
 
 	// set output name
@@ -469,7 +469,7 @@ void extract()
 {
 	size_t i, j;
 	int res;
-	file_header l_fh;
+	file_header_t l_fh;
 	struct stat l_in_stat;
 
 	res = read(g_in_fd, &l_fh, sizeof(l_fh));
