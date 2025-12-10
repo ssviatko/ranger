@@ -43,7 +43,7 @@ mode_t g_in_mode;
 char g_out[BUFFLEN];
 int g_out_fd;
 const char *g_carith_suffix = ".carith";
-int g_keep = 1;
+int g_keep = 0;
 const char *g_keep_suffix = ".plain";
 char g_dmbuff[4];
 
@@ -95,7 +95,6 @@ enum {
 	OPT_NORLE,
 	OPT_RLEONLY,
 	OPT_NOCOLOR,
-	OPT_NOKEEP,
 	OPT_NOLZSS,
 	OPT_LZSSONLY,
 	OPT_USELZSS32,
@@ -119,7 +118,7 @@ struct option g_options[] = {
 	{ "lzssonly", no_argument, NULL, OPT_LZSSONLY },
 	{ "uselzss32", no_argument, NULL, OPT_USELZSS32 },
 	{ "rleonly", no_argument, NULL, OPT_RLEONLY },
-	{ "nokeep", no_argument, NULL, OPT_NOKEEP },
+	{ "keep", no_argument, NULL, 'k' },
 	{ "showblocks", no_argument, NULL, 'b' },
 	{ "noicms", no_argument, NULL, OPT_NOROULETTE },
 	{ NULL, 0, NULL, 0 }
@@ -791,7 +790,7 @@ int main(int argc, char **argv)
 	color_init(g_nocolor, g_debug);
 	color_set_theme(THEME_GREEN);
 
-	while ((opt = getopt_long(argc, argv, "?g:vcxtb", g_options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "?g:vcxtbk", g_options, NULL)) != -1) {
 		switch (opt) {
 			case OPT_DEBUG:
 			{
@@ -823,9 +822,9 @@ int main(int argc, char **argv)
 				g_showblocks = 1;
 			}
 			break;
-			case OPT_NOKEEP:
+			case 'k':
 			{
-				g_keep = 0;
+				g_keep = 1;
 			}
 			break;
 			case 'c': // compress
@@ -909,7 +908,7 @@ int main(int argc, char **argv)
 				color_printf("*a     (--nolzss)*d defeat LZSS encode before arithmetic compression\n");
 				color_printf("*a     (--lzssonly)*d LZSS encode file only, no arithmetic compression\n");
 				color_printf("*a     (--uselzss32)*d Use LZSS32 instead of LZSS4\n");
-				color_printf("*a     (--nokeep)*d delete input files, like UNIX compress command\n");
+				color_printf("*a  -k (--keep)*d keep input files instead of automatically removing them\n");
 				color_printf("*a  -b (--showblocks)*d Show block info in --tell mode\n");
 				color_printf("*a     (--nocims)*d defeat intelligent compression method selection\n");
 				color_printf("*hoperational modes*a (choose only one)*d\n");
