@@ -31,7 +31,7 @@ int g_nolzss = 0;
 int g_rleonly = 0;
 int g_lzssonly = 0;
 int g_uselzss32 = 0;
-int g_showblocks = 0;
+int g_showsegs = 0;
 int g_roulette = 1;
 int g_color_theme = 0;
 uint32_t g_segsize = DEFAULT_SEGSIZE;
@@ -67,7 +67,7 @@ typedef struct {
 	uint32_t total_compsize; // comp_len + freq_comp_len
 	uint16_t freq_comp_len; // freq_comp_len
 	uint32_t plain_len;
-} block_header_t;
+} segment_header_t;
 
 // concurrency
 int g_threads = 8; // default thread count
@@ -82,7 +82,7 @@ typedef struct {
 	pthread_mutex_t sig_mtx;
 	pthread_cond_t sig_cond;
 	int sigflag;
-	uint32_t cur_block;
+	uint32_t cur_seg;
 } thread_work_area;
 
 thread_work_area twa[MAXTHREADS];
@@ -119,7 +119,7 @@ struct option g_options[] = {
 	{ "uselzss32", no_argument, NULL, OPT_USELZSS32 },
 	{ "rleonly", no_argument, NULL, OPT_RLEONLY },
 	{ "keep", no_argument, NULL, 'k' },
-	{ "showblocks", no_argument, NULL, 'b' },
+	{ "showsegs", no_argument, NULL, 's' },
 	{ "noicms", no_argument, NULL, OPT_NOROULETTE },
 	{ NULL, 0, NULL, 0 }
 };
@@ -190,13 +190,12 @@ void *compress_tf(void *arg)
 		}
 		pthread_mutex_unlock(&a_twa->sig_mtx);
 		// signalled, so preform action
-//		color_debug("tid %d got block %d to work on\n", a_twa->id, a_twa->cur_block);
 		if (g_mode == MODE_COMPRESS) {
 			carith_compress(&ctx[a_twa->id]);
-			color_debug("tid %d block %d plain_len %ld comp_len %ld freq_comp_len %ld total_comp_len %ld plainCRC %08X compCRC %08X\n", a_twa->id, a_twa->cur_block, ctx[a_twa->id].plain_len, ctx[a_twa->id].comp_len, ctx[a_twa->id].freq_comp_len, (ctx[a_twa->id].comp_len + ctx[a_twa->id].freq_comp_len), get_buffer_crc(0, ctx[a_twa->id].plain, ctx[a_twa->id].plain_len), get_buffer_crc(0, ctx[a_twa->id].comp, ctx[a_twa->id].comp_len));
+			color_debug("tid %d segment %d plain_len %ld comp_len %ld freq_comp_len %ld total_comp_len %ld plainCRC %08X compCRC %08X\n", a_twa->id, a_twa->cur_seg, ctx[a_twa->id].plain_len, ctx[a_twa->id].comp_len, ctx[a_twa->id].freq_comp_len, (ctx[a_twa->id].comp_len + ctx[a_twa->id].freq_comp_len), get_buffer_crc(0, ctx[a_twa->id].plain, ctx[a_twa->id].plain_len), get_buffer_crc(0, ctx[a_twa->id].comp, ctx[a_twa->id].comp_len));
 		} else if (g_mode == MODE_EXTRACT) {
 			carith_extract(&ctx[a_twa->id]);
-			color_debug("tid %d block %d decomp_len %ld total_comp_len %ld compCRC %08X decompCRC %08X\n", a_twa->id, a_twa->cur_block, ctx[a_twa->id].decomp_len, (ctx[a_twa->id].comp_len + ctx[a_twa->id].freq_comp_len), get_buffer_crc(0, ctx[a_twa->id].comp, ctx[a_twa->id].comp_len), get_buffer_crc(0, ctx[a_twa->id].decomp, ctx[a_twa->id].decomp_len));
+			color_debug("tid %d segment %d decomp_len %ld total_comp_len %ld compCRC %08X decompCRC %08X\n", a_twa->id, a_twa->cur_seg, ctx[a_twa->id].decomp_len, (ctx[a_twa->id].comp_len + ctx[a_twa->id].freq_comp_len), get_buffer_crc(0, ctx[a_twa->id].comp, ctx[a_twa->id].comp_len), get_buffer_crc(0, ctx[a_twa->id].decomp, ctx[a_twa->id].decomp_len));
 		}
 		// done
 		a_twa->sigflag = 0;
@@ -215,7 +214,7 @@ void compress()
 	size_t i, j;
 	int l_eof = 0;
 	int l_docontinue = 0;
-	uint32_t l_block_ctr = 0;
+	uint32_t l_seg_ctr = 0;
 	file_header_t l_fh;
 	size_t l_sofar;
 
@@ -307,14 +306,14 @@ void compress()
 			l_sofar += res;
 			l_crc = get_buffer_crc(l_crc, ctx[i].plain, ctx[i].plain_len);
 			l_block_crc = get_buffer_crc(0, ctx[i].plain, ctx[i].plain_len);
-			color_debug("read block %d from input file len %ld block CRC %08X\n", l_block_ctr, res, l_block_crc);
+			color_debug("read segment %d from input file len %ld block CRC %08X\n", l_seg_ctr, res, l_block_crc);
 			// populate a thread and signal it
 			pthread_mutex_lock(&twa[i].sig_mtx);
-			twa[i].cur_block = l_block_ctr;
+			twa[i].cur_seg = l_seg_ctr;
 			twa[i].sigflag = 1;
 			pthread_cond_signal(&twa[i].sig_cond);
 			pthread_mutex_unlock(&twa[i].sig_mtx);
-			l_block_ctr++;
+			l_seg_ctr++;
 		}
 		if (l_docontinue > 0)
 			continue; // go down to bottom of do loop
@@ -326,9 +325,9 @@ void compress()
 			pthread_cond_wait(&g_tally_cond, &g_tally_mtx);
 		pthread_mutex_unlock(&g_tally_mtx);
 		// all our threads are done and the plains are all contained in the ctx data structures
-		color_debug("processing %d blocks\n", i);
+		color_debug("processing %d segments\n", i);
 		for (j = 0; j < i; ++j) {
-			block_header_t bh;
+			segment_header_t bh;
 			bh.scheme = ctx[j].scheme;
 			bh.rle_intermediate = htonl(ctx[j].rle_intermediate);
 			l_fh.total_rle_len += ctx[j].rle_intermediate;
@@ -339,14 +338,14 @@ void compress()
 			bh.plain_len = htonl(ctx[j].plain_len);
 
 			// write block header
-			color_debug("block %ld writing header..\n", j);
+			color_debug("segment %ld writing header..\n", j);
 			res = write(g_out_fd, &bh, sizeof(bh));
 			if (res < 0) {
 				color_err_printf(1, "carith: unable to write to output file.");
 				exit(EXIT_FAILURE);
 			}
 			if (res != sizeof(bh)) {
-				color_err_printf(0, "carith: difficulty writing block header to output file: wrote %ld expected to write %ld.", res, sizeof(bh));
+				color_err_printf(0, "carith: difficulty writing segment header to output file: wrote %ld expected to write %ld.", res, sizeof(bh));
 				exit(EXIT_FAILURE);
 			}
 			// write frequency table
@@ -501,7 +500,7 @@ void extract()
 			color_printf("*acarith:*d --- size on disk:         *h%ld*d\n", g_in_len);
 			color_printf("*acarith:*d --- compression ratio:    *h%3.5f%%*d\n", (float)l_in_stat.st_size / (float)ntohl(l_fh.total_plain_len) * 100.0);
 			color_printf("*acarith:*d --- original file mode:   *h%08lX*d (*h%s*d)\n", ntohl(l_fh.mode), decimal_mode(ntohl(l_fh.mode)));
-			color_printf("*acarith:*d --- block size:           *h%d*d\n", ntohl(l_fh.segsize));
+			color_printf("*acarith:*d --- segment size:         *h%d*d\n", ntohl(l_fh.segsize));
 			color_printf("*acarith:*d --- original file CRC:    *h%08X*d\n", ntohl(l_fh.plain_crc));
 			color_printf("*acarith:*d --- compression chain:    ");
 			if ((l_fh.scheme & scheme_roulette) != scheme_roulette) {
@@ -515,7 +514,7 @@ void extract()
 					color_printf("*bAC *d");
 			} else {
 				color_printf("*bICMS*d ");
-				if (!g_showblocks) color_printf("(use *h-t*d with *h-b*d or *h--showblocks*d to interrogate individual blocks)");
+				if (!g_showsegs) color_printf("(use *h-t*d with *h-s*d or *h--showsegs*d to interrogate individual segments)");
 			}
 			printf("\n");
 		}
@@ -525,16 +524,16 @@ void extract()
 		exit(EXIT_FAILURE);
 	}
 
-	block_header_t bh;
+	segment_header_t bh;
 
-	if ((g_mode == MODE_TELL) && (g_showblocks == 1)) {
-		int block_ctr = 0;
-		int blockscan_eof = 0;
+	if ((g_mode == MODE_TELL) && (g_showsegs == 1)) {
+		int seg_ctr = 0;
+		int segscan_eof = 0;
 
 		do {
 			res = read(g_in_fd, &bh, sizeof(bh));
 			if (res == 0) {
-				blockscan_eof = 1;
+				segscan_eof = 1;
 				continue;
 			}
 
@@ -545,7 +544,7 @@ void extract()
 			bh.plain_len = ntohl(bh.plain_len);
 
 			if (g_verbose) {
-				color_printf("*acarith:*d blk: *h%d*d ", block_ctr);
+				color_printf("*acarith:*d seg: *h%d*d ", seg_ctr);
 				color_printf("cc: ");
 				if ((bh.scheme & scheme_stored) == scheme_stored) {
 					color_printf("*bSTORED *d");
@@ -570,8 +569,8 @@ void extract()
 				color_err_printf(1, "difficulty seeking through input file");
 				exit(EXIT_FAILURE);
 			}
-			block_ctr++;
-		} while (blockscan_eof == 0);
+			seg_ctr++;
+		} while (segscan_eof == 0);
 	}
 
 	if (g_mode == MODE_TELL) {
@@ -620,7 +619,7 @@ void extract()
 	if (g_verbose) color_printf("*acarith:*d decompressing to *h%s*d ... ", g_out);
 
 	int l_eof = 0;
-	int l_block_ctr = 0;
+	int l_seg_ctr = 0;
 	int l_docontinue = 0;
 	uint32_t l_crc = 0;
 	uint32_t l_block_crc = 0;
@@ -662,9 +661,9 @@ void extract()
 			bh.total_compsize = ntohl(bh.total_compsize);
 			bh.freq_comp_len = ntohs(bh.freq_comp_len);
 			bh.plain_len = ntohl(bh.plain_len);
-			color_debug("block %d totalcompsize %d freqsize %d rle_intermediate %ld lzss_intermediate %ld\n", l_block_ctr, bh.total_compsize, bh.freq_comp_len, bh.rle_intermediate, bh.lzss_intermediate);
+			color_debug("block %d totalcompsize %d freqsize %d rle_intermediate %ld lzss_intermediate %ld\n", l_seg_ctr, bh.total_compsize, bh.freq_comp_len, bh.rle_intermediate, bh.lzss_intermediate);
 
-			ctx[i].block_num = l_block_ctr;
+			ctx[i].block_num = l_seg_ctr;
 			ctx[i].plain_len = bh.plain_len;
 			ctx[i].rle_intermediate = bh.rle_intermediate;
 			ctx[i].lzss_intermediate = bh.lzss_intermediate;
@@ -693,12 +692,12 @@ void extract()
 			// populate a thread and signal it
 			ctx[i].scheme = bh.scheme;
 			pthread_mutex_lock(&twa[i].sig_mtx);
-			twa[i].cur_block = l_block_ctr;
+			twa[i].cur_seg = l_seg_ctr;
 			twa[i].sigflag = 1;
 			pthread_cond_signal(&twa[i].sig_cond);
 			pthread_mutex_unlock(&twa[i].sig_mtx);
 
-			l_block_ctr++;
+			l_seg_ctr++;
 		}
 		if (l_docontinue > 0)
 			continue;
@@ -790,7 +789,7 @@ int main(int argc, char **argv)
 	color_init(g_nocolor, g_debug);
 	color_set_theme(THEME_GREEN);
 
-	while ((opt = getopt_long(argc, argv, "?g:vcxtbk", g_options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "?g:vcxtsk", g_options, NULL)) != -1) {
 		switch (opt) {
 			case OPT_DEBUG:
 			{
@@ -817,9 +816,9 @@ int main(int argc, char **argv)
 				g_verbose = 1;
 			}
 			break;
-			case 'b': // showblocks
+			case 's': // showsegs
 			{
-				g_showblocks = 1;
+				g_showsegs = 1;
 			}
 			break;
 			case 'k':
@@ -909,7 +908,7 @@ int main(int argc, char **argv)
 				color_printf("*a     (--lzssonly)*d LZSS encode file only, no arithmetic compression\n");
 				color_printf("*a     (--uselzss32)*d Use LZSS32 instead of LZSS4\n");
 				color_printf("*a  -k (--keep)*d keep input files instead of automatically removing them\n");
-				color_printf("*a  -b (--showblocks)*d Show block info in --tell mode\n");
+				color_printf("*a  -s (--showsegs)*d Show segment info in --tell mode\n");
 				color_printf("*a     (--nocims)*d defeat intelligent compression method selection\n");
 				color_printf("*hoperational modes*a (choose only one)*d\n");
 				color_printf("*a  -c (--compress) <file>*d compress a file\n");
@@ -969,7 +968,7 @@ int main(int argc, char **argv)
 
 	// police segsize
 	if (g_segsize < 32768) {
-		color_err_printf(0, "carith: need to use segment size of oat least 32768.");
+		color_err_printf(0, "carith: need to use segment size of at least 32768.");
 		exit(EXIT_FAILURE);
 	}
 	if (g_segsize > 16777216) {

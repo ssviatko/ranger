@@ -464,18 +464,6 @@ static void extract_ac(carith_comp_ctx *ctx, size_t a_source_size, uint8_t *a_ou
 //     printf("\n");
 // }
 
-void ccct_print_hex(uint8_t *a_buffer, size_t a_len)
-{
-    unsigned int i;
-    unsigned int l_bytes_to_print = (200 / 48) * 16;
-    for (i = 0; i < a_len; ++i) {
-        if (i % l_bytes_to_print == 0)
-            printf("\n");
-        printf("%02X ", a_buffer[i]);
-    }
-    printf("\n");
-}
-
 carith_error_t carith_compress(carith_comp_ctx *ctx)
 {
     uint8_t *ac_source = ctx->plain;
@@ -877,7 +865,7 @@ carith_extract_skipac:
         err = lzss4_decode(&ctx->lzss4_context, ctx->lzssdec, ctx->lzssdec_len, ctx->rledec, &ctx->rledec_len);
         if (err != LZSS_ERR_NONE) {
             fprintf(stderr, "LZSSAC lzss4 error: %s what the AC decompressor gave us: len %ld", lzss4_strerror(err), ctx->lzssdec_len);
-            ccct_print_hex(ctx->lzssdec, ctx->lzssdec_len);
+//            ccct_print_hex(ctx->lzssdec, ctx->lzssdec_len);
             exit(EXIT_FAILURE);
         }
         //        printf("lzss4 output: (%ld) ", ctx->rledec_len);
@@ -889,7 +877,7 @@ carith_extract_skipac:
         err32 = lzss32_decode(&ctx->lzss32_context, ctx->lzssdec, ctx->lzssdec_len, ctx->rledec, &ctx->rledec_len);
         if (err32 != LZSS32_ERR_NONE) {
             fprintf(stderr, "LZSS32AC lzss32 error: %s what the AC decompressor gave us: len %ld", lzss32_strerror(err32), ctx->lzssdec_len);
-            ccct_print_hex(ctx->lzssdec, ctx->lzssdec_len);
+//            ccct_print_hex(ctx->lzssdec, ctx->lzssdec_len);
             exit(EXIT_FAILURE);
         }
         memcpy(ctx->decomp, ctx->rledec + LZSS32_WINDOW_SIZE, ctx->rledec_len);
