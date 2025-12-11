@@ -240,6 +240,9 @@ static void compress_ac(carith_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len)
 
     range_lo = 0;
     range_hi = ULLONG_MAX;
+    uint32_t underflow_ctr = 0;
+    uint8_t underflow_lo = 0;
+//    uint8_t underflow_hi = 0;
 
     for (plain_ptr = 0; plain_ptr < a_in_len; ++plain_ptr) {
         cur_byte = a_in[plain_ptr];
@@ -249,9 +252,47 @@ static void compress_ac(carith_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len)
         //		printf("pos %ld read %02X new range_lo %010lX range_hi %010lX\n", plain_ptr, cur_byte, range_lo, range_hi);
         range_lo_hibyte = (range_lo >> 56);
         range_hi_hibyte = (range_hi >> 56);
+        // underflow detection: high bytes of the ranges differ by 1,
+        if ((range_hi_hibyte - range_lo_hibyte) == 1) {
+            underflow_lo = range_lo_hibyte;
+//            underflow_hi = range_hi_hibyte;
+            uint8_t range_lo_2ndbyte = (range_lo >> 48) & 0xff;
+            uint8_t range_hi_2ndbyte = (range_hi >> 48) & 0xff;
+            // and test if the second byte (after the high byte) on the ranges follows the ff/00 pattern:
+            if ((range_lo_2ndbyte == 0xff) && (range_hi_2ndbyte == 0x00)) {
+                // detected underflow, so increment the counter
+                underflow_ctr++;
+//                printf("underflow detected: %02X/%02X %d times\n", underflow_lo, underflow_hi, underflow_ctr);
+                // shrink the ranges while keeping the high byte
+                uint64_t range_lo_savetop = range_lo & 0xff00000000000000;
+                uint64_t range_hi_savetop = range_hi & 0xff00000000000000;
+                range_lo <<= 8;
+                range_hi <<= 8;
+                range_hi |= 0xff;
+                range_lo &= 0x00ffffffffffffff;
+                range_lo |= range_lo_savetop;
+                range_hi &= 0x00ffffffffffffff;
+                range_hi |= range_hi_savetop;
+            }
+        }
         while (range_lo_hibyte == range_hi_hibyte) {
             //			printf("outputing pos %ld byte %02X\n", comp_ptr, range_lo_hibyte);
             ctx->comp[comp_ptr++] = range_lo_hibyte;
+            // crap out any underflow bytes after we write the high byte
+            if (underflow_ctr > 0) {
+                while (underflow_ctr > 0) {
+                    if (range_lo_hibyte == underflow_lo) {
+                        // cocked over to the low side, so write FF
+//                        printf("underflow_ctr %d outputting FF\n", underflow_ctr);
+                        ctx->comp[comp_ptr++] = 0xff;
+                    } else {
+                        // cocked over to the high side, so write 00
+//                        printf("underflow_ctr %d outputting 00\n", underflow_ctr);
+                        ctx->comp[comp_ptr++] = 0x00;
+                    }
+                    underflow_ctr--;
+                }
+            }
             range_lo <<= 8;
             range_hi <<= 8;
             range_hi |= 0xff;
@@ -260,14 +301,12 @@ static void compress_ac(carith_comp_ctx *ctx, uint8_t *a_in, size_t a_in_len)
         }
         //		assign_ranges(ctx, range_lo, range_hi);
     }
-    //	uint64_t l_mid = (range_hi + range_lo) / 2;
-    uint64_t l_mid = range_lo;
-    //	printf("hi %016lX lo %016lx mid %016lx\n", range_hi, range_lo, l_mid);
+    // output rest of range_lo in case decompressor needs it
     for (i = 0; i < 8; ++i) {
-        range_lo_hibyte = (l_mid >> 56) & 0xff;
-        //        printf("comp pos %ld outputting final 5-byte word %02X\n", comp_ptr, range_lo_hibyte);
+        range_lo_hibyte = (range_lo >> 56) & 0xff;
+        //		printf("comp pos %ld outputting final 5-byte word %02X\n", comp_ptr, range_lo_hibyte);
         ctx->comp[comp_ptr++] = range_lo_hibyte;
-        l_mid <<= 8;
+        range_lo <<= 8;
     }
     ctx->comp_len = comp_ptr;
 
@@ -347,6 +386,8 @@ static void extract_ac(carith_comp_ctx *ctx, size_t a_source_size, uint8_t *a_ou
     uint64_t window;
     uint16_t countwidth;
     uint16_t ftbl_enum_entries;
+//    uint8_t underflow_lo = 0;
+//    uint8_t underflow_hi = 0;
 
     // obliterate frequency table
     for (i = 0; i < 256; ++i) {
@@ -422,6 +463,34 @@ static void extract_ac(carith_comp_ctx *ctx, size_t a_source_size, uint8_t *a_ou
         //		range_hi = ctx->freq[i].range_end;
         range_lo_hibyte = (range_lo >> 56);
         range_hi_hibyte = (range_hi >> 56);
+        // underflow detection
+        if ((range_hi_hibyte - range_lo_hibyte) == 1) {
+//            underflow_lo = range_lo_hibyte;
+//            underflow_hi = range_hi_hibyte;
+            uint8_t range_lo_2ndbyte = (range_lo >> 48) & 0xff;
+            uint8_t range_hi_2ndbyte = (range_hi >> 48) & 0xff;
+            if ((range_lo_2ndbyte == 0xff) && (range_hi_2ndbyte == 0x00)) {
+//                printf("underflow detected: %02X/%02X win %016lX\n", underflow_lo, underflow_hi, window);
+                // save the high byte of the ranges and the window
+                uint64_t range_lo_savetop = range_lo & 0xff00000000000000;
+                uint64_t range_hi_savetop = range_hi & 0xff00000000000000;
+                uint64_t window_savetop   =   window & 0xff00000000000000;
+                // slide everything over by one byte
+                range_lo <<= 8;
+                range_hi <<= 8;
+                window <<= 8;
+                // fix up the low byte: range_lo gets zeros courtesy of the shift, range_hi gets 0xff, window gets the next byte from the token stream
+                range_hi |= 0xff;
+                window |= ctx->comp[comp_ptr++];
+                // mask off high byte and stick the saved top byte back on
+                range_lo &= 0x00ffffffffffffff;
+                range_lo |= range_lo_savetop;
+                range_hi &= 0x00ffffffffffffff;
+                range_hi |= range_hi_savetop;
+                window &=   0x00ffffffffffffff;
+                window |= window_savetop;
+            }
+        }
         while (range_lo_hibyte == range_hi_hibyte) {
             //			printf("hibyte equivalency %02X range_lo %010lX range_hi %010lx\n", range_lo_hibyte, range_lo, range_hi);
             // scoot our ranges over by 8 bits
