@@ -14,6 +14,8 @@ TARGET = carith
 TARGET_OBJS = main.o rle.o lzss4.o lzss32.o carith.o cbit.o color_print.o crc32.o
 TEST_TARGET = algo_test
 TEST_TARGET_OBJS = algo_test.o
+TEST32_TARGET = algo32
+TEST32_TARGET_OBJS = algo32.o
 RLEINT_TARGET = rleint
 RLEINT_TARGET_OBJS = rleint.o rle.o lzss4.o lzss32.o carith.o cbit.o
 LZSS_TEST_TARGET = lzss_test
@@ -23,7 +25,7 @@ all: command test
 
 command: $(TARGET)
 
-test: $(TEST_TARGET) $(RLEINT_TARGET) $(LZSS_TEST_TARGET)
+test: $(TEST_TARGET) $(TEST32_TARGET) $(RLEINT_TARGET) $(LZSS_TEST_TARGET)
 
 $(TARGET): $(TARGET_OBJS)
 
@@ -34,6 +36,10 @@ $(TARGET): $(TARGET_OBJS)
 $(TEST_TARGET): $(TEST_TARGET_OBJS)
 
 	$(LD) $(TEST_TARGET_OBJS) -o $(TEST_TARGET) $(LDFLAGS)
+
+$(TEST32_TARGET): $(TEST32_TARGET_OBJS)
+
+	$(LD) $(TEST32_TARGET_OBJS) -o $(TEST32_TARGET) $(LDFLAGS)
 
 $(RLEINT_TARGET): $(RLEINT_TARGET_OBJS)
 
@@ -54,5 +60,6 @@ clean:
 	rm -f *~
 	rm -f $(TARGET)
 	rm -f $(TEST_TARGET)
+	rm -f $(TEST32_TARGET)
 	rm -f $(RLEINT_TARGET)
 	rm -f $(LZSS_TEST_TARGET)
