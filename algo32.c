@@ -313,7 +313,7 @@ void process(carith_comp_ctx *ctx)
 	range_hi = UINT_MAX;
 	uint32_t underflow_ctr = 0;
 	uint8_t underflow_lo = 0;
-	uint8_t underflow_hi = 0;
+//	uint8_t underflow_hi = 0;
 
 	for (plain_ptr = 0; plain_ptr < ctx->plain_len; ++plain_ptr) {
 		cur_byte = ctx->plain[plain_ptr];
@@ -328,7 +328,7 @@ void process(carith_comp_ctx *ctx)
 		// underflow detection: high bytes of the ranges differ by 1,
 		if ((range_hi_hibyte - range_lo_hibyte) == 1) {
 			underflow_lo = range_lo_hibyte;
-			underflow_hi = range_hi_hibyte;
+//			underflow_hi = range_hi_hibyte;
 			uint8_t range_lo_2ndbyte = (range_lo >> 16) & 0xff;
 			uint8_t range_hi_2ndbyte = (range_hi >> 16) & 0xff;
 			// and test if the second byte (after the high byte) on the ranges follows the ff/00 pattern:
@@ -532,7 +532,7 @@ void process(carith_comp_ctx *ctx)
 		// underflow detection
 		if ((range_hi_hibyte - range_lo_hibyte) == 1) {
 			underflow_lo = range_lo_hibyte;
-			underflow_hi = range_hi_hibyte;
+//			underflow_hi = range_hi_hibyte;
 			uint8_t range_lo_2ndbyte = (range_lo >> 16) & 0xff;
 			uint8_t range_hi_2ndbyte = (range_hi >> 16) & 0xff;
 			if ((range_lo_2ndbyte == 0xff) && (range_hi_2ndbyte == 0x00)) {

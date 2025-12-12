@@ -159,7 +159,7 @@ void retrieve_range(carith_comp_ctx *ctx, uint8_t a_token, uint64_t *a_start, ui
 	printf("rr: passed %016lX %016lX ", *a_start, *a_end);
 	*a_start = (__uint128_t)l_start_orig + ((__uint128_t)ctx->freq[a_token].count_base * (__uint128_t)l_rangesize) / (__uint128_t)ctx->plain_len;
 	*a_end = (__uint128_t)l_start_orig + ((((__uint128_t)ctx->freq[a_token].count_base + (__uint128_t)ctx->freq[a_token].count) * (__uint128_t)l_rangesize) / (__uint128_t)ctx->plain_len) - 1;
-	printf("assigned token %02X - %ld/%ld/%ld  %016lX %016lX\n", a_token, ctx->freq[a_token].count_base, ctx->freq[a_token].count, ctx->plain_len, *a_start, *a_end);
+	printf("assigned token %02X - %ld/%ld/%ld  %016lX %016lX rs:%ld per:%ld\n", a_token, ctx->freq[a_token].count_base, ctx->freq[a_token].count, ctx->plain_len, *a_start, *a_end, (*a_end - *a_start), ((*a_end - *a_start) / ctx->plain_len));
 }
 
 uint8_t token_for_window(carith_comp_ctx *ctx, uint64_t a_window, uint64_t a_start, uint64_t a_end)
@@ -195,9 +195,10 @@ uint8_t token_for_window(carith_comp_ctx *ctx, uint64_t a_window, uint64_t a_sta
 		l_start = a_start;
 		l_end = a_end;
 		retrieve_range(ctx, j, &l_start, &l_end);
-//		printf("j range for %02lX: %016lX %016lX\n", j, l_start, l_end);
 		if ((a_window < l_start) || (a_window > l_end)) {
-			// fatal error
+			printf("j range for %02lX: %016lX %016lX a_window %016lX\n", j, l_start, l_end, a_window);
+			fprintf(stderr, "token_for_window: attempt to adjust range failed!\n");
+			exit(EXIT_FAILURE);
 		}
 		i = j;
 	}

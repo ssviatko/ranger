@@ -97,6 +97,9 @@ static uint8_t token_for_window(carith_comp_ctx *ctx, uint64_t a_window, uint64_
         //		printf("found substitute %02lx\n", j);
         if (j == 256) {
             // fatal error
+            fprintf(stderr, "token_for_window: exhausted frequency table, couldn't find count position!\n");
+            fprintf(stderr, "this should never, ever happen! Please send a screen capture of this to ssviatko@gmail.com!\n");
+            exit(EXIT_FAILURE);
         }
         l_start = a_start;
         l_end = a_end;
@@ -104,6 +107,10 @@ static uint8_t token_for_window(carith_comp_ctx *ctx, uint64_t a_window, uint64_
         //		printf("j range for %02lX: %016lX %016lX\n", j, l_start, l_end);
         if ((a_window < l_start) || (a_window > l_end)) {
             // fatal error
+            fprintf(stderr, "token_for_window: j range for %02lX: %016lX %016lX a_window %016lX\n", j, l_start, l_end, a_window);
+            fprintf(stderr, "token_for_window: attempt to adjust range failed!\n");
+            fprintf(stderr, "this should never, ever happen! Please send a screen capture of this to ssviatko@gmail.com!\n");
+            exit(EXIT_FAILURE);
         }
         i = j;
     }
