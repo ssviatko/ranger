@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <sys/time.h>
+#include <utime.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 #include <sys/types.h>
@@ -39,6 +40,7 @@ enum { MODE_NONE, MODE_COMPRESS, MODE_EXTRACT, MODE_TELL } g_mode = MODE_NONE;
 char g_in[BUFFLEN];
 int g_in_fd;
 off_t g_in_len;
+time_t g_in_mtime;
 mode_t g_in_mode;
 char g_out[BUFFLEN];
 int g_out_fd;
@@ -53,6 +55,7 @@ typedef struct {
 	uint16_t cookie; // network byte order
 	uint8_t scheme;
 	mode_t mode; // mode of original file
+	uint8_t mtime[5]; // lower 5 bytes of mtime time_t
 	uint32_t plain_crc; // crc of plain input file
 	uint32_t total_plain_len;
 	uint32_t total_rle_len;
@@ -162,7 +165,8 @@ void verify_file_argument()
 	}
 	g_in_len = l_stat.st_size;
 	g_in_mode = l_stat.st_mode;
-	color_debug("g_in stat - st_size %ld st_mode %08lX (%s)\n", l_stat.st_size, l_stat.st_mode, decimal_mode(l_stat.st_mode));
+	g_in_mtime = l_stat.st_mtime;
+	color_debug("g_in stat - st_size %ld st_mode %08lX (%s) st_mtime (%016lX) %s", l_stat.st_size, l_stat.st_mode, decimal_mode(l_stat.st_mode), l_stat.st_mtime, ctime(&l_stat.st_mtime));
 	g_in_fd = open(g_in, O_RDONLY);
 	if (g_in_fd < 0) {
 		color_err_printf(1, "carith: can't open input file");
@@ -234,6 +238,11 @@ void compress()
 	memset(&l_fh, 0, sizeof(l_fh));
 	l_fh.cookie = htons(g_cookie);
 	l_fh.mode = htonl(g_in_mode);
+	// source file mtime
+	for (int mshift = 4; mshift >= 0; --mshift) {
+		l_fh.mtime[mshift] = g_in_mtime & 0xff;
+		g_in_mtime >>= 8;
+	}
 	if (g_roulette) {
 		l_fh.scheme |= scheme_roulette;
 	} else if (g_rleonly) {
@@ -470,6 +479,7 @@ void extract()
 	int res;
 	file_header_t l_fh;
 	struct stat l_in_stat;
+	time_t l_in_mtime;
 
 	res = read(g_in_fd, &l_fh, sizeof(l_fh));
 	if (res < 0) {
@@ -487,6 +497,14 @@ void extract()
 		g_verbose = 1;
 
 	if (ntohs(l_fh.cookie) == g_cookie) {
+		// unpack infile time
+		l_in_mtime = 0;
+		l_in_mtime |= l_fh.mtime[0];
+		for (i = 1; i < 5; ++i) {
+			l_in_mtime <<= 8;
+			l_in_mtime |= l_fh.mtime[i];
+		}
+		color_debug("l_in_mtime %016lX\n", l_in_mtime);
 		if (g_verbose) {
 			color_printf("*acarith:*d --- original file length: *h%ld*d\n", ntohl(l_fh.total_plain_len));
 			if ((l_fh.scheme & scheme_roulette) != scheme_roulette) {
@@ -500,6 +518,7 @@ void extract()
 			color_printf("*acarith:*d --- size on disk:         *h%ld*d\n", g_in_len);
 			color_printf("*acarith:*d --- compression ratio:    *h%3.5f%%*d\n", (float)l_in_stat.st_size / (float)ntohl(l_fh.total_plain_len) * 100.0);
 			color_printf("*acarith:*d --- original file mode:   *h%08lX*d (*h%s*d)\n", ntohl(l_fh.mode), decimal_mode(ntohl(l_fh.mode)));
+			color_printf("*acarith:*d --- modification time:    *h%s*d", ctime(&l_in_mtime));
 			color_printf("*acarith:*d --- segment size:         *h%dk*d\n", ntohl(l_fh.segsize) / 1024);
 			color_printf("*acarith:*d --- original file CRC:    *h%08X*d\n", ntohl(l_fh.plain_crc));
 			color_printf("*acarith:*d --- compression chain:    ");
@@ -764,6 +783,16 @@ void extract()
 	res = chmod(g_out, ntohl(l_fh.mode));
 	if (res < 0) {
 		color_err_printf(1, "unable to chmod output file to original mode");
+		exit(EXIT_FAILURE);
+	}
+
+	// set mtime to original file's mod time
+	struct utimbuf uti;
+	uti.actime = time(NULL);
+	uti.modtime = l_in_mtime;
+	res = utime(g_out, &uti);
+	if (res < 0) {
+		color_err_printf(1, "unable to set modtime on original file");
 		exit(EXIT_FAILURE);
 	}
 
