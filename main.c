@@ -48,6 +48,8 @@ const char *g_carith_suffix = ".carith";
 int g_keep = 0;
 const char *g_keep_suffix = ".plain";
 char g_dmbuff[4];
+char g_infotag[256];
+int g_infotag_set = 0;
 
 uint16_t g_cookie = 0xd5aa;
 
@@ -124,6 +126,7 @@ struct option g_options[] = {
 	{ "keep", no_argument, NULL, 'k' },
 	{ "showsegs", no_argument, NULL, 's' },
 	{ "noicms", no_argument, NULL, OPT_NOROULETTE },
+	{ "infotag", required_argument, NULL, 'i' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -275,6 +278,19 @@ void compress()
 	res = write(g_out_fd, &l_fh, sizeof(l_fh));
 	if (res < 0) {
 		color_err_printf(1, "carith: unable to write file header to output file.");
+	}
+
+	// write infotag, if it exists
+	uint8_t l_infotag_len = strlen(g_infotag);
+	res = write(g_out_fd, &l_infotag_len, sizeof(l_infotag_len));
+	if (res < 0) {
+		color_err_printf(1, "carith: unable to write infotag length to output file.");
+	}
+	if (l_infotag_len > 0) {
+		res = write(g_out_fd, g_infotag, l_infotag_len);
+		if (res < 0) {
+			color_err_printf(1, "carith: unable to write infotag to output file.");
+		}
 	}
 
 	if (g_verbose) color_printf("*acarith:*d compressing *h%s*d ... ", g_in);
@@ -483,9 +499,26 @@ void extract()
 
 	res = read(g_in_fd, &l_fh, sizeof(l_fh));
 	if (res < 0) {
-		color_err_printf(1, "unable to read input file");
+		color_err_printf(1, "unable to read file header from input file");
 		exit(EXIT_FAILURE);
 	}
+
+	// read infotag
+	uint8_t l_infotag_len;
+	res = read(g_in_fd, &l_infotag_len, sizeof(l_infotag_len));
+	if (res < 0) {
+		color_err_printf(1, "unable to read infotag len from input file");
+		exit(EXIT_FAILURE);
+	}
+	if (l_infotag_len > 0) {
+		res = read(g_in_fd, g_infotag, l_infotag_len);
+		if (res < 0) {
+			color_err_printf(1, "unable to read infotag from input file");
+			exit(EXIT_FAILURE);
+		}
+		g_infotag[l_infotag_len] = 0;
+	}
+
 	res = stat(g_in, &l_in_stat);
 	if (res < 0) {
 		color_err_printf(1, "unable to stat input file");
@@ -536,6 +569,9 @@ void extract()
 				if (!g_showsegs) color_printf("(use *h-t*d with *h-s*d or *h--showsegs*d to interrogate individual segments)");
 			}
 			printf("\n");
+			if (l_infotag_len > 0) {
+				color_printf("*acarith:*d --- infotag:              *h%s*d\n", g_infotag);
+			}
 		}
 	} else {
 		color_err_printf(0, "carith: file is not a carith archive.");
@@ -818,7 +854,7 @@ int main(int argc, char **argv)
 	color_init(g_nocolor, g_debug);
 	color_set_theme(g_color_theme);
 
-	while ((opt = getopt_long(argc, argv, "?g:vcxtsk", g_options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "?g:vcxtski:", g_options, NULL)) != -1) {
 		switch (opt) {
 			case OPT_DEBUG:
 			{
@@ -835,6 +871,14 @@ int main(int argc, char **argv)
 			case OPT_THREADS: // force thread count
 			{
 				g_threads = atoi(optarg);
+			}
+			break;
+			case 'i': // infotag
+			{
+				for (i = 0; i < 256; ++i)
+					g_infotag[i] = 0;
+				strncpy(g_infotag, optarg, 255);
+				g_infotag_set = 1;
 			}
 			break;
 			case 'g': // segsize
@@ -933,6 +977,7 @@ int main(int argc, char **argv)
 				color_printf("*a     (--threads) <count>*d specify number of theads to use (default *h%d*d)\n", g_threads);
 				color_printf("*a  -g (--segsize) <kilobytes>*d specify size of segments (default *h%dk*d)\n", DEFAULT_SEGSIZE / 1024);
 				color_printf("*a  -v (--verbose)*d enable verbose mode\n");
+				color_printf("*a  -i (--infotag)*d <string> set infotag string when compressing\n");
 				color_printf("*a     (--norle)*d defeat RLE encode before arithmetic compression\n");
 				color_printf("*a     (--rleonly)*d RLE encode file only, no arithmetic compression\n");
 				color_printf("*a     (--nolzss)*d defeat LZSS encode before arithmetic compression\n");
