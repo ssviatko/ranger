@@ -46,6 +46,34 @@ static int g_nocolor; ///< Set to 1 to disable color printing
 static int g_debug;   ///< Set to 1 to enable debug printing
 static pthread_mutex_t g_debug_mtx; ///< protect debug messages in multithreaded environment
 
+static uint16_t paren_opts[8];
+static uint16_t paren_count;
+static char paren_char;
+static char paren_assembly[BUFFLEN];
+static uint16_t paren_assembly_len;
+
+char g_output[BUFFLEN];
+char g_blend[8192];
+
+const uint8_t gs_standard_colors[][3] = {
+    { 0x00, 0x00, 0x00 }, // Black
+    { 0xdd, 0x00, 0x33 }, // Deep Red
+    { 0x00, 0x00, 0x99 }, // Dark Blue
+    { 0xdd, 0x22, 0xdd }, // Purple
+    { 0x00, 0x77, 0x22 }, // Dark Green
+    { 0x55, 0x55, 0x55 }, // Dark Gray
+    { 0x22, 0x22, 0xff }, // Medium Blue
+    { 0x66, 0xaa, 0xff }, // Light Blue
+    { 0x88, 0x55, 0x00 }, // Brown
+    { 0xff, 0x66, 0x00 }, // Orange
+    { 0xaa, 0xaa, 0xaa }, // Light Gray
+    { 0xff, 0x99, 0x88 }, // Pink
+    { 0x11, 0xdd, 0x00 }, // Light Green
+    { 0xff, 0xff, 0x00 }, // Yellow
+    { 0x44, 0xff, 0x99 }, // Aquamarine
+    { 0xff, 0xff, 0xff }  // White
+};
+
 void color_init(const int a_nocolor, const int a_debug)
 {
     g_nocolor = a_nocolor;
@@ -146,15 +174,98 @@ void color_progress(uint32_t a_sofar, uint32_t a_total)
     color_printf("(*h%u*d of *h%u*d) ", a_sofar, a_total);
 }
 
+char *color_rgb(uint8_t a_red, uint8_t a_green, uint8_t a_blue)
+{
+    g_output[0] = 0;
+    sprintf(g_output, "\033[38;2;%d;%d;%dm", a_red, a_green, a_blue);
+    return g_output;
+}
+
+char *color_rgb_bg(uint8_t a_red, uint8_t a_green, uint8_t a_blue)
+{
+    g_output[0] = 0;
+    sprintf(g_output, "\033[48;2;%d;%d;%dm", a_red, a_green, a_blue);
+    return g_output;
+}
+
+char *color_gs(int a_color)
+{
+    return color_rgb(gs_standard_colors[a_color][0], gs_standard_colors[a_color][1], gs_standard_colors[a_color][2]);
+}
+
+char *color_gs_bg(int a_color)
+{
+    return color_rgb_bg(gs_standard_colors[a_color][0], gs_standard_colors[a_color][1], gs_standard_colors[a_color][2]);
+}
+
+char *color_rgb_blend(const char *a_str, uint8_t a_begin_red, uint8_t a_begin_green, uint8_t a_begin_blue, uint8_t a_end_red, uint8_t a_end_green, uint8_t a_end_blue, int a_background)
+{
+    unsigned int l_strlen = strlen(a_str);
+    g_blend[0] = 0;
+    if (l_strlen == 0) {
+       return g_blend;
+    }
+    if (l_strlen == 1) {
+        if (!g_nocolor) strcat(g_blend, color_rgb(a_begin_red, a_begin_green, a_begin_blue));
+        strcat(g_blend, a_str);
+        if (!g_nocolor) strcat(g_blend, CP_GREEN_COLOR_DEFAULT);
+        return g_blend;
+    }
+    // at least 2 chars long so blend it
+    for (unsigned int i = 0; i < l_strlen; ++i) {
+        double l_red = (double)a_begin_red + ((((double)a_end_red - (double)a_begin_red) / (double)(l_strlen - 1)) * (double)i);
+        double l_green = (double)a_begin_green + ((((double)a_end_green - (double)a_begin_green) / (double)(l_strlen - 1)) * (double)i);
+        double l_blue = (double)a_begin_blue + ((((double)a_end_blue - (double)a_begin_blue) / (double)(l_strlen - 1)) * (double)i);
+        if (!g_nocolor) {
+            if (a_background)
+                strcat(g_blend, color_rgb_bg((uint8_t)l_red, (uint8_t)l_green, (uint8_t)l_blue));
+            else
+                strcat(g_blend, color_rgb((uint8_t)l_red, (uint8_t)l_green, (uint8_t)l_blue));
+        }
+        strncat(g_blend, a_str + i, 1);
+    }
+    if (!g_nocolor) strcat(g_blend, CP_GREEN_COLOR_DEFAULT);
+    return g_blend;
+}
+
+char *color_256(unsigned int a_color)
+{
+    g_output[0] = 0;
+    sprintf(g_output, "\033[38;5;%dm", a_color);
+    return g_output;
+}
+
+char *color_256_bg(unsigned int a_color)
+{
+    g_output[0] = 0;
+    sprintf(g_output, "\033[48;5;%dm", a_color);
+    return g_output;
+}
+
+char *fmtbld(const char *template_format, ...)
+{
+    g_output[0] = 0;
+    va_list args;
+    va_start(args, template_format);
+    vsprintf(g_output, template_format, args);
+    va_end(args);
+    return g_output;
+}
+
 void color_printf(const char *format, ...)
 {
+    char original_format[BUFFLEN];
     char edited_format[BUFFLEN];
     char c;
     size_t i = 0, j = 0;
-    enum { COLLECT, FINDSTAR } state = COLLECT;
+    enum { COLLECT, FINDSTAR, PAREN_OPEN, PAREN_VALUE, PAREN_OPTION } state = COLLECT;
 
-    while (i < strlen(format)) {
-        c = format[i];
+    // cache format string
+    original_format[0] = 0;
+    strcpy(original_format, format);
+
+    while (i < strlen(original_format)) {
+        c = original_format[i];
         if (state == COLLECT) {
             if (c == '*') {
                 // found first star
@@ -164,10 +275,133 @@ void color_printf(const char *format, ...)
             }
             ++i;
             continue;
+        } else if (state == PAREN_OPEN) {
+            if (c != '[') {
+                edited_format[j] = 0;
+                strcat(edited_format, "???");
+                j += 3;
+                state = COLLECT;
+                ++i;
+                continue;
+            } else {
+                paren_count = 0;
+                paren_assembly_len = 0;
+                paren_assembly[0] = 0;
+                state = PAREN_VALUE;
+                ++i;
+                continue;
+            }
+        } else if (state == PAREN_VALUE) {
+            if ((c == ',') || (c == ']')) {
+                paren_opts[paren_count] = atoi(paren_assembly);
+                paren_count++;
+                paren_assembly_len = 0;
+                paren_assembly[0] = 0;
+                if (c == ']') {
+                    state = PAREN_OPTION;
+                } else {
+                    state = PAREN_VALUE;
+                }
+                ++i;
+                continue;
+            } else {
+                // some other character, so assemble an integer
+                paren_assembly[paren_assembly_len] = c;
+                paren_assembly[paren_assembly_len + 1] = 0;
+                paren_assembly_len++;
+                ++i;
+                continue;
+            }
+        } else if (state == PAREN_OPTION) {
+            if (paren_char == 'c') {
+                if (!g_nocolor) {
+                    edited_format[j] = 0;
+                    strcat(edited_format, color_gs(paren_opts[0]));
+                    j += strlen(g_output);
+                }
+                state = COLLECT;
+                continue;
+            } else if (paren_char == 'g') {
+                if (!g_nocolor) {
+                    edited_format[j] = 0;
+                    strcat(edited_format, color_gs_bg(paren_opts[0]));
+                    j += strlen(g_output);
+                }
+                state = COLLECT;
+                continue;
+            } else if (paren_char == '2') {
+                if (!g_nocolor) {
+                    edited_format[j] = 0;
+                    strcat(edited_format, color_256(paren_opts[0]));
+                    j += strlen(g_output);
+                }
+                state = COLLECT;
+                continue;
+            } else if (paren_char == '3') {
+                if (!g_nocolor) {
+                    edited_format[j] = 0;
+                    strcat(edited_format, color_256_bg(paren_opts[0]));
+                    j += strlen(g_output);
+                }
+                state = COLLECT;
+                continue;
+            } else if (paren_char == '5') {
+                if (!g_nocolor) {
+                    edited_format[j] = 0;
+                    strcat(edited_format, color_rgb(paren_opts[0], paren_opts[1], paren_opts[2]));
+                    j += strlen(g_output);
+                }
+                state = COLLECT;
+                continue;
+            } else if (paren_char == '6') {
+                if (!g_nocolor) {
+                    edited_format[j] = 0;
+                    strcat(edited_format, color_rgb_bg(paren_opts[0], paren_opts[1], paren_opts[2]));
+                    j += strlen(g_output);
+                }
+                state = COLLECT;
+                continue;
+            } else {
+                edited_format[j] = 0;
+                strcat(edited_format, "???");
+                j += 3;
+                state = COLLECT;
+                continue;
+            }
         } else if (state == FINDSTAR) {
             if (c == '*') {
                 // double star
                 edited_format[j++] = '*';
+            } else if (c == 'c') {
+                state = PAREN_OPEN;
+                paren_char = 'c';
+                ++i;
+                continue;
+            } else if (c == 'g') {
+                state = PAREN_OPEN;
+                paren_char = 'g';
+                ++i;
+                continue;
+            } else if (c == '2') {
+                state = PAREN_OPEN;
+                paren_char = '2';
+                ++i;
+                continue;
+            } else if (c == '3') {
+                state = PAREN_OPEN;
+                paren_char = '3';
+                ++i;
+                continue;
+            } else if (c == '5') {
+                state = PAREN_OPEN;
+                paren_char = '5';
+                ++i;
+                continue;
+            } else if (c == '6') {
+                state = PAREN_OPEN;
+                paren_char = '6';
+                ++i;
+                continue;
             } else if (c == 'h') {
                 // output highlight
                 if (!g_nocolor) {
@@ -213,7 +447,7 @@ void color_printf(const char *format, ...)
     edited_format[j] = 0;
 
     va_list args;
-    va_start(args, format);
+    va_start(args);
     vprintf(edited_format, args);
     va_end(args);
 }

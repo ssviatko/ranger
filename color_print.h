@@ -42,6 +42,7 @@ extern "C" {
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -93,13 +94,19 @@ void color_init         (const int a_nocolor, const int a_debug);
 void color_set_theme    (cp_theme_t a_theme);
 void color_set_nocolor  (const int a_nocolor);
 void color_set_debug    (const int a_debug);
-void color_free();
+void color_free         ();
 void color_progress     (uint32_t a_sofar, uint32_t a_total);
 void color_printf       (const char *format, ...);
 void color_err_printf   (int a_strerror, const char *format, ...);
 void color_debug        (const char *format, ...);
-
-
+char *color_256         (unsigned int a_color);
+char *color_256_bg      (unsigned int a_color);
+char *color_rgb         (uint8_t a_red, uint8_t a_green, uint8_t a_blue);
+char *color_rgb_bg      (uint8_t a_red, uint8_t a_green, uint8_t a_blue);
+char *color_rgb_blend   (const char *a_str, uint8_t a_begin_red, uint8_t a_begin_green, uint8_t a_begin_blue, uint8_t a_end_red, uint8_t a_end_green, uint8_t a_end_blue, int a_background);
+char *color_gs          (int a_color);
+char *color_gs_bg       (int a_color);
+char *fmtbld            (const char *format, ...);
 
 #ifdef __cplusplus
 }
